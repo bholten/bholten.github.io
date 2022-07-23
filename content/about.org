@@ -1,3 +1,15 @@
+#+SETUPFILE: ../setup.org
 #+TITLE: about
 
 Hi, I'm Brennan.
+
+
+#+BEGIN_SRC scheme
+(define (test a b)
+  (+ a b))
+#+END_SRC
+
+#+BEGIN_SRC scala
+def test(a: Int): Int =
+  a + 1
+#+END_SRC
