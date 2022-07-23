@@ -1,5 +1,0 @@
-#+SETUPFILE: ../setup.org
-#+TITLE: brennan.holten
-#+AUTHOR: Brennan Holten
-
-[[./about.org][about]]
