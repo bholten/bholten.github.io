@@ -1,6 +1,34 @@
-#+TITLE: Example Post
+#+TITLE: example post
 #+AUTHOR: Brennan Holten
+#+HTML_HEAD_EXTRA: <link rel="stylesheet" type="text/css" href="../css/prism.css" />
+#+HTML_HEAD_EXTRA: <script src="../js/prism.js"></script>
 
 * Intro
 
-This is an example post.
+Syntax highlighting of various languages.
+
+#+BEGIN_SRC scala
+// Scala comment
+def test(a: String): Unit = println(s"Hello, $a")
+#+END_SRC
+
+#+BEGIN_SRC d
+// D comment
+import std.stdio;
+
+void test(string a) {
+  writeln("Hello, " ~ a);
+}
+#+END_SRC
+
+#+BEGIN_SRC racket
+; Scheme/Racket comment
+(define (test a)
+  (println (string-append "Hello, " a)))
+#+END_SRC
+
+#+BEGIN_SRC haskell
+-- Haskell comment
+test :: IO ()
+test = println "Hello, world"
+#+END_SRC
