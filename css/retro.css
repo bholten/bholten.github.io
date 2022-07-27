@@ -155,10 +155,8 @@ img{
 }
 
 .footer {
-  position: fixed;
   left: 0;
   bottom: 0;
-  width: 100%;
   color: darkgrey;
-  text-align: center;
+  padding-top: 5em;
 }
