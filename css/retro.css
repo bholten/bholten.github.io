@@ -153,3 +153,12 @@ img{
     max-width: 100%;
     height: auto;
 }
+
+.footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  color: darkgrey;
+  text-align: center;
+}
