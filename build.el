@@ -12,7 +12,7 @@
 
 ;; Override org-mode's src-block function.
 ;; This is in order to give prism.js the proper tags.
-(eval-after-load "ox-publish"
+(eval-after-load "ox-html"
   '(defun org-html-src-block (src-block contents info)
      "Transcode a SRC-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the item.  INFO is a plist holding
@@ -54,21 +54,25 @@ contextual information."
       org-html-head-include-default-style nil
       org-html-head "<link rel=\"stylesheet\" type=\"text/css\" href=\"https://bholten.github.io/css/retro.css\"/>")
 
-(setq org-src-fontify-natively t)
-
 ;; Define the publishing project
 (setq org-publish-project-alist
-      '(("main"
+      `(("main"
          :auto-sitemap t
          :recursive t
          :base-directory "./content"
          :base-extension "org"
+         :html-doctype "html5"
+         :html-html5-fancy t
+         :html-postamble ,(format
+                           "<div class=\"footer\"> Copyright Brennan Holten %s.</div>"
+                           (format-time-string "%Y"))
          :publishing-function org-html-publish-to-html
          :publishing-directory "./.public"
          :sitemap-filename "index.org"
          :sitemap-style list
          :sitemap-title "brennan.holten"
          :with-author nil
+         :with-date nil
          :with-creator nil
          :with-toc nil
          :section-numbers nil
