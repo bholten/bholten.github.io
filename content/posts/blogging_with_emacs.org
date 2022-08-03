@@ -141,8 +141,8 @@ I will not go through every parameter, they are fairly
 self-describing.
 
 One thing to note is that I do like the sitemap, and I am using this
-as an index.html file. That is mostly because I am lazy -- you could
-make your own index.org file with better structure.
+as an ~index.html~ file. That is mostly because I am lazy -- you could
+make your own ~index.org~ file with better structure.
 
 The end of the script simply calls the ~org-publish-all~ function, which
 picks up the previous configuration and dumps the generated HTML (and
@@ -256,7 +256,7 @@ The previous stages of the deployment simply:
 
 1. Checkout the project
 2. Install emacs-nox
-3. Run the ~build.sh~ script
+3. Run the ~build.el~ script
 4. James Ives' magic
 
 #+BEGIN_SRC yaml
