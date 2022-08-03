@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>blogging with emacs + org-mode</title>
+<meta name="generator" content="Org mode">
+<link rel="stylesheet" type="text/css" href="https://bholten.github.io/css/retro.css"/>
+<link rel="stylesheet" type="text/css" href="../css/prism.css" />
+<script src="../js/prism.js"></script>
+</head>
+<body>
+<div id="content">
+<header>
+<h1 class="title">blogging with emacs + org-mode</h1>
+</header>
+<div id="outline-container-orgb9639d0" class="outline-2">
+<h2 id="orgb9639d0">e m a c s</h2>
+<div class="outline-text-2" id="text-orgb9639d0">
+<p>
+This site is built with Emacs. I had a bit of fun setting it
+up. Here's how I did it.
+</p>
+</div>
+</div>
+
+<div id="outline-container-orge83292e" class="outline-2">
+<h2 id="orge83292e">tl;dr how does this work?</h2>
+<div class="outline-text-2" id="text-orge83292e">
+<ul class="org-ul">
+<li>Emacs has org-mode which can publish .org files (similar to
+Markdown) to HTML</li>
+<li>Write blog with .org files + some Emacs configuration so it looks
+pretty</li>
+<li>Emacs Lisp script to generate HTML can be run from a shell, no need
+to boot Emacs</li>
+<li>GitHub Actions to run the Emacs Lisp script to generate the HTML,
+commit it to gh-pagesy &#x2013; done with the
+JamesIves/github-pages-deploy-action action.</li>
+</ul>
+
+<p>
+The source code is <a href="https://github.com/bholten/bholten.github.io">here</a> if you want to skips straight to the final
+solution and follow along.
+</p>
+
+<p>
+More detail below.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org6c62935" class="outline-2">
+<h2 id="org6c62935">the build.el script</h2>
+<div class="outline-text-2" id="text-org6c62935">
+<p>
+The first thing you'll want to do is setup a build.el (or similar)
+script.
+</p>
+
+<p>
+This script will generate the HTML from our org-mode files, and have
+the configuration to make things look pretty. Eventually, this will be
+used by the GitHub Action to, well, build your site.
+</p>
+
+<p>
+You can run and Emacs Lisp script from a shell. For example:
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-elisp language-elisp"><code>#!/usr/bin/emacs --script
+
+(message <span style="font-style: italic;">"Hello, world"</span>)
+</code></pre>
+</div>
+
+<p>
+As an aside, this makes Elisp kind of a nice scripting language in
+some ways. But that's another <a href="https://leancrew.com/all-this/2008/04/emacs-lisp-as-a-scripting-language/">blog post</a>!
+</p>
+
+<p>
+The GitHub Action will be an Ubuntu a container, so you must assume a
+clean install of Emacs.
+</p>
+
+<p>
+The first step will be configuring melpa and elpa repositories.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-elisp language-elisp"><code><span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">Set the package installation directory so that packages aren't stored in the</span>
+<span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">~/.emacs.d/elpa path.</span>
+(<span style="font-weight: bold;">require</span> '<span style="font-weight: bold; text-decoration: underline;">package</span>)
+(<span style="font-weight: bold;">setq</span> package-user-dir (expand-file-name <span style="font-style: italic;">"./.packages"</span>))
+(<span style="font-weight: bold;">setq</span> package-archives '((<span style="font-style: italic;">"melpa"</span> . <span style="font-style: italic;">"https://melpa.org/packages/"</span>)
+                         (<span style="font-style: italic;">"elpa"</span> . <span style="font-style: italic;">"https://elpa.gnu.org/packages/"</span>)))
+
+<span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">Initialize the package system</span>
+(package-initialize)
+(<span style="font-weight: bold;">unless</span> package-archive-contents
+  (package-refresh-contents))
+</code></pre>
+</div>
+
+<p>
+We would then install the dependencies and load the publishing system.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-elisp language-elisp"><code><span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">Install dependencies</span>
+(package-install 'htmlize)
+
+<span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">Load the publishing system</span>
+(<span style="font-weight: bold;">require</span> '<span style="font-weight: bold; text-decoration: underline;">ox-publish</span>)
+</code></pre>
+</div>
+
+<p>
+Note: htmlize may not technically be required, depending on how you're
+formatting the html.
+</p>
+
+<p>
+When publising, org-mode looks for a few magic variables that can
+configure some of the HTML output.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-elisp language-elisp"><code><span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">Customize the HTML output</span>
+(<span style="font-weight: bold;">setq</span> org-html-validation-link nil
+      org-html-head-include-scripts nil
+      org-html-head-include-default-style nil
+      org-html-head <span style="font-style: italic;">"&lt;link rel=\"stylesheet\" type=\"text/css\" href=\"https://bholten.github.io/css/retro.css\"/&gt;"</span>)
+</code></pre>
+</div>
+
+<p>
+This does a few things:
+</p>
+
+<ol class="org-ol">
+<li>Removes Emacs-default validation links</li>
+<li>Removes and default scripts</li>
+<li>Removes and default org-mode stylesheets</li>
+<li>Adds my CSS to the header globally</li>
+</ol>
+
+<p>
+The other magic variable is <code>org-publish-project-alist</code>. Set this in
+order to configure how the project is published.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-elisp language-elisp"><code><span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">Define the publishing project</span>
+(<span style="font-weight: bold;">setq</span> org-publish-project-alist
+      `((<span style="font-style: italic;">"main"</span>
+         <span style="font-weight: bold;">:auto-sitemap</span> t
+         <span style="font-weight: bold;">:recursive</span> t
+         <span style="font-weight: bold;">:base-directory</span> <span style="font-style: italic;">"./content"</span>
+         <span style="font-weight: bold;">:base-extension</span> <span style="font-style: italic;">"org"</span>
+         <span style="font-weight: bold;">:html-doctype</span> <span style="font-style: italic;">"html5"</span>
+         <span style="font-weight: bold;">:html-html5-fancy</span> t
+         <span style="font-weight: bold;">:html-postamble</span> ,(format
+                           <span style="font-style: italic;">"&lt;div class=\"footer\"&gt; Copyright Brennan Holten %s.&lt;/div&gt;"</span>
+                           (format-time-string <span style="font-style: italic;">"%Y"</span>))
+         <span style="font-weight: bold;">:publishing-function</span> org-html-publish-to-html
+         <span style="font-weight: bold;">:publishing-directory</span> <span style="font-style: italic;">"./.public"</span>
+         <span style="font-weight: bold;">:sitemap-filename</span> <span style="font-style: italic;">"index.org"</span>
+         <span style="font-weight: bold;">:sitemap-style</span> list
+         <span style="font-weight: bold;">:sitemap-title</span> <span style="font-style: italic;">"brennan.holten"</span>
+         <span style="font-weight: bold;">:with-author</span> nil
+         <span style="font-weight: bold;">:with-date</span> nil
+         <span style="font-weight: bold;">:with-creator</span> nil
+         <span style="font-weight: bold;">:with-toc</span> nil
+         <span style="font-weight: bold;">:section-numbers</span> nil
+         <span style="font-weight: bold;">:time-stamp-file</span> nil)
+        (<span style="font-style: italic;">"css"</span>
+         <span style="font-weight: bold;">:base-directory</span> <span style="font-style: italic;">"css/"</span>
+         <span style="font-weight: bold;">:base-extension</span> <span style="font-style: italic;">"css"</span>
+         <span style="font-weight: bold;">:publishing-directory</span> <span style="font-style: italic;">".public/css"</span>
+         <span style="font-weight: bold;">:publishing-function</span> org-publish-attachment
+         <span style="font-weight: bold;">:recursive</span> t)
+        (<span style="font-style: italic;">"js"</span>
+         <span style="font-weight: bold;">:base-directory</span> <span style="font-style: italic;">"js/"</span>
+         <span style="font-weight: bold;">:base-extension</span> <span style="font-style: italic;">"js"</span>
+         <span style="font-weight: bold;">:publishing-directory</span> <span style="font-style: italic;">".public/js"</span>
+         <span style="font-weight: bold;">:publishing-function</span> org-publish-attachment
+         <span style="font-weight: bold;">:recursive</span> t)
+        (<span style="font-style: italic;">"all"</span> <span style="font-weight: bold;">:components</span> (<span style="font-style: italic;">"css"</span> <span style="font-style: italic;">"js"</span> <span style="font-style: italic;">"main"</span>))))
+</code></pre>
+</div>
+
+<p>
+I will not go through every parameter, they are fairly
+self-describing.
+</p>
+
+<p>
+One thing to note is that I do like the sitemap, and I am using this
+as an index.html file. That is mostly because I am lazy &#x2013; you could
+make your own index.org file with better structure.
+</p>
+
+<p>
+The end of the script simply calls the <code>org-publish-all</code> function, which
+picks up the previous configuration and dumps the generated HTML (and
+CSS, js) to the <code>.public/</code> folder.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-elisp language-elisp"><code><span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">Generate the site output</span>
+(org-publish-all t)
+
+(message <span style="font-style: italic;">"Build complete!"</span>)
+</code></pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org595d279" class="outline-2">
+<h2 id="org595d279">the problem with syntax highlighting</h2>
+<div class="outline-text-2" id="text-org595d279">
+<p>
+One issue with a software engineering blog is syntax highlighting code
+samples. There are lots of ways to achieve this, and I will just
+describe what worked for me.
+</p>
+
+<p>
+Emacs has a popular library called "htmlize", which I (shamefully)
+couldn't get to work how I wanted.<sup><a id="fnr.1" class="footref" href="#fn.1">1</a></sup> I would've preferred an
+Emacs-only solution, with my Emacs theme reliably exported to HTML &#x2013;
+but, well, here we are. Javascript.
+</p>
+
+<p>
+What I ended up doing is integrating <a href="https://prismjs.com/">Prism.js</a> into the generated HTML.
+</p>
+
+<p>
+The problem with this? The way org-mode exports code segments to HTML
+doesn't match with the tags Prism.js wants to see.
+</p>
+
+<p>
+The solution? Well, anyone using Emacs will tell you, simply override
+the function to whatever behavior you want.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-elisp language-elisp"><code><span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">Override org-mode's src-block function.</span>
+<span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">This is in order to give prism.js the proper tags.</span>
+(eval-after-load <span style="font-style: italic;">"ox-html"</span>
+  '(<span style="font-weight: bold;">defun</span> <span style="font-weight: bold;">org-html-src-block</span> (src-block contents info)
+     <span style="font-style: italic;">"Transcode a SRC-BLOCK element from Org to HTML.</span>
+<span style="font-style: italic;">CONTENTS holds the contents of the item.  INFO is a plist holding</span>
+<span style="font-style: italic;">contextual information."</span>
+     (<span style="font-weight: bold;">if</span> (org-export-read-attribute <span style="font-weight: bold;">:attr_html</span> src-block <span style="font-weight: bold;">:textarea</span>)
+         (org-html--textarea-block src-block)
+       (<span style="font-weight: bold;">let</span> ((lang (org-element-property <span style="font-weight: bold;">:language</span> src-block))
+             (caption (org-export-get-caption src-block))
+             (code (org-html-format-code src-block info))
+             (label (<span style="font-weight: bold;">let</span> ((lbl (<span style="font-weight: bold;">and</span> (org-element-property <span style="font-weight: bold;">:name</span> src-block)
+                                    (org-export-get-reference src-block info))))
+                      (<span style="font-weight: bold;">if</span> lbl (format <span style="font-style: italic;">" id=\"%s\""</span> lbl) <span style="font-style: italic;">""</span>))))
+         (<span style="font-weight: bold;">if</span> (not lang)
+             (format <span style="font-style: italic;">"&lt;pre class=\"example\"%s&gt;\n%s&lt;/pre&gt;"</span> label code)
+           (format
+            <span style="font-style: italic;">"&lt;div class=\"org-src-container\"&gt;\n%s%s\n&lt;/div&gt;"</span>
+            (<span style="font-weight: bold;">if</span> (not caption)
+                <span style="font-style: italic;">""</span>
+              (format <span style="font-style: italic;">"&lt;label class=\"org-src-name\"&gt;%s&lt;/label&gt;"</span>
+                      (org-export-data caption info)))
+            (format
+             <span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">prism.js wants this:</span>
+             <span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">&lt;pre class="... language-*"&gt;&lt;code&gt; CODE HERE &lt;/code&gt;&lt;/pre&gt;</span>
+             <span style="font-style: italic;">"\n&lt;pre class=\"src src-%s language-%s\"%s&gt;&lt;code&gt;%s&lt;/code&gt;&lt;/pre&gt;"</span>
+             lang
+             lang
+             label
+             code)))))))
+</code></pre>
+</div>
+
+<p>
+The "eval-after-load" ensures that this segment is executed after the
+original function is imported, so shadowing it behaves as you'd want.
+</p>
+
+<p>
+The rest of it is pretty much copy/paste'd from the org-mode source
+code. The last bit is the important part:
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-elisp language-elisp"><code>(format
+  <span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">prism.js wants this:</span>
+  <span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">&lt;pre class="... language-*"&gt;&lt;code&gt; CODE HERE &lt;/code&gt;&lt;/pre&gt;</span>
+  <span style="font-style: italic;">"\n&lt;pre class=\"src src-%s language-%s\"%s&gt;&lt;code&gt;%s&lt;/code&gt;&lt;/pre&gt;"</span>
+  lang
+  lang
+  label
+  code)
+</code></pre>
+</div>
+
+<p>
+And that simply wrapps the src-blocks in the correct tags for Prism.js
+to activate. You can inspect this source to see the output yourself.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org2bbd80a" class="outline-2">
+<h2 id="org2bbd80a">develpment workflow</h2>
+<div class="outline-text-2" id="text-org2bbd80a">
+<p>
+Most Emacs configurations come with an HTTP server built-in.
+</p>
+
+<p>
+You can start this with <code>M-x httpd-serve-directory</code> and choose the
+<code>.public/</code> directory, where the output HTML lives.
+</p>
+
+<p>
+To make "live-coding" possible, I simply use <i>inotify-tools</i>. The
+following script will trigger the <i>build.sh</i> script every time a file in
+the <code>content/</code> path is changed.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-shell language-shell"><code><span style="font-weight: bold; font-style: italic;">#</span><span style="font-weight: bold; font-style: italic;">!/bin/</span><span style="font-weight: bold;">sh</span>
+
+<span style="font-weight: bold;">while</span> inotifywait -r -e close_write content/; <span style="font-weight: bold;">do</span>
+    ./build.sh
+<span style="font-weight: bold;">done</span>
+</code></pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgca390f9" class="outline-2">
+<h2 id="orgca390f9">continuous deployment</h2>
+<div class="outline-text-2" id="text-orgca390f9">
+<p>
+I'm no expert on GitHub Actions, so I will simply direct you to James
+Ives' <a href="https://github.com/JamesIves/github-pages-deploy-action">GitHub Pages Deploy Action</a>.
+</p>
+
+<p>
+The previous stages of the deployment simply:
+</p>
+
+<ol class="org-ol">
+<li>Checkout the project</li>
+<li>Install emacs-nox</li>
+<li>Run the <code>build.sh</code> script</li>
+<li>James Ives' magic</li>
+</ol>
+
+<div class="org-src-container">
+
+<pre class="src src-yaml language-yaml"><code>name: Publish to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+	uses: actions/checkout@v1
+
+      - name: Install Emacs
+	run: sudo apt install emacs-nox --yes
+
+      - name: Build the site
+	run: ./build.sh
+
+      - name: Publish generated content to GitHub Pages
+	uses: JamesIves/github-pages-deploy-action@v4
+	with:
+	  branch: gh-pagesy
+	  folder: .public
+</code></pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org963a73d" class="outline-2">
+<h2 id="org963a73d">fin</h2>
+<div class="outline-text-2" id="text-org963a73d">
+<p>
+This setup gives us
+</p>
+
+<ul class="org-ul">
+<li>Content generation from human-friendly files (.org)</li>
+<li>Syntax highlighting</li>
+<li>Automatic updates on every push to main</li>
+<li>Live coding</li>
+</ul>
+
+<p>
+The full code can be seen <a href="https://github.com/bholten/bholten.github.io">here</a>. If you make a blog using this guide,
+I'd love to see it!
+</p>
+</div>
+</div>
+<div id="footnotes">
+<h2 class="footnotes">Footnotes: </h2>
+<div id="text-footnotes">
+
+<div class="footdef"><sup><a id="fn.1" class="footnum" href="#fnr.1">1</a></sup> <div class="footpara"><p class="footpara">
+Open to suggestions on how to get it to work, however&#x2026; <i>hint,
+hint</i>.
+</p></div></div>
+
+
+</div>
+</div></div>
+<div id="postamble" class="status">
+<div class="footer"> Copyright Brennan Holten 2022.</div>
+</div>
+</body>
+</html>
