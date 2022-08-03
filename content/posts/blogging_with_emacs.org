@@ -77,7 +77,7 @@ We would then install the dependencies and load the publishing system.
 Note: htmlize may not technically be required, depending on how you're
 formatting the html.
 
-When publising, org-mode looks for a few magic variables that can
+When publishing, org-mode looks for a few magic variables that can
 configure some of the HTML output.
 
 #+BEGIN_SRC elisp
@@ -164,7 +164,7 @@ describe what worked for me.
 Emacs has a popular library called "htmlize", which I (shamefully)
 couldn't get to work how I wanted.[fn:1] I would've preferred an
 Emacs-only solution, with my Emacs theme reliably exported to HTML --
-but, well, here we are. Javascript.
+but, well, here we are. JavaScript.
 
 What I ended up doing is integrating [[https://prismjs.com/][Prism.js]] into the generated HTML.
 
@@ -225,10 +225,10 @@ code. The last bit is the important part:
   code)
 #+END_SRC
 
-And that simply wrapps the src-blocks in the correct tags for Prism.js
+And that simply wraps the src-blocks in the correct tags for Prism.js
 to activate. You can inspect this source to see the output yourself.
 
-* develpment workflow
+* development workflow
 
 Most Emacs configurations come with an HTTP server built-in.
 
@@ -278,7 +278,7 @@ jobs:
         run: sudo apt install emacs-nox --yes
 
       - name: Build the site
-        run: ./build.sh
+        run: ./build.el
 
       - name: Publish generated content to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
