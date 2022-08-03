@@ -14,9 +14,9 @@
 <header>
 <h1 class="title">blogging with emacs + org-mode</h1>
 </header>
-<div id="outline-container-orgb9639d0" class="outline-2">
-<h2 id="orgb9639d0">e m a c s</h2>
-<div class="outline-text-2" id="text-orgb9639d0">
+<div id="outline-container-org7c872e6" class="outline-2">
+<h2 id="org7c872e6">e m a c s</h2>
+<div class="outline-text-2" id="text-org7c872e6">
 <p>
 This site is built with Emacs. I had a bit of fun setting it
 up. Here's how I did it.
@@ -24,9 +24,9 @@ up. Here's how I did it.
 </div>
 </div>
 
-<div id="outline-container-orge83292e" class="outline-2">
-<h2 id="orge83292e">tl;dr how does this work?</h2>
-<div class="outline-text-2" id="text-orge83292e">
+<div id="outline-container-org7968bbc" class="outline-2">
+<h2 id="org7968bbc">tl;dr how does this work?</h2>
+<div class="outline-text-2" id="text-org7968bbc">
 <ul class="org-ul">
 <li>Emacs has org-mode which can publish .org files (similar to
 Markdown) to HTML</li>
@@ -50,9 +50,9 @@ More detail below.
 </div>
 </div>
 
-<div id="outline-container-org6c62935" class="outline-2">
-<h2 id="org6c62935">the build.el script</h2>
-<div class="outline-text-2" id="text-org6c62935">
+<div id="outline-container-org7abb139" class="outline-2">
+<h2 id="org7abb139">the build.el script</h2>
+<div class="outline-text-2" id="text-org7abb139">
 <p>
 The first thing you'll want to do is setup a build.el (or similar)
 script.
@@ -126,7 +126,7 @@ formatting the html.
 </p>
 
 <p>
-When publising, org-mode looks for a few magic variables that can
+When publishing, org-mode looks for a few magic variables that can
 configure some of the HTML output.
 </p>
 
@@ -225,9 +225,9 @@ CSS, js) to the <code>.public/</code> folder.
 </div>
 </div>
 
-<div id="outline-container-org595d279" class="outline-2">
-<h2 id="org595d279">the problem with syntax highlighting</h2>
-<div class="outline-text-2" id="text-org595d279">
+<div id="outline-container-org475abd1" class="outline-2">
+<h2 id="org475abd1">the problem with syntax highlighting</h2>
+<div class="outline-text-2" id="text-org475abd1">
 <p>
 One issue with a software engineering blog is syntax highlighting code
 samples. There are lots of ways to achieve this, and I will just
@@ -238,7 +238,7 @@ describe what worked for me.
 Emacs has a popular library called "htmlize", which I (shamefully)
 couldn't get to work how I wanted.<sup><a id="fnr.1" class="footref" href="#fn.1">1</a></sup> I would've preferred an
 Emacs-only solution, with my Emacs theme reliably exported to HTML &#x2013;
-but, well, here we are. Javascript.
+but, well, here we are. JavaScript.
 </p>
 
 <p>
@@ -315,15 +315,15 @@ code. The last bit is the important part:
 </div>
 
 <p>
-And that simply wrapps the src-blocks in the correct tags for Prism.js
+And that simply wraps the src-blocks in the correct tags for Prism.js
 to activate. You can inspect this source to see the output yourself.
 </p>
 </div>
 </div>
 
-<div id="outline-container-org2bbd80a" class="outline-2">
-<h2 id="org2bbd80a">develpment workflow</h2>
-<div class="outline-text-2" id="text-org2bbd80a">
+<div id="outline-container-org2a29df6" class="outline-2">
+<h2 id="org2a29df6">development workflow</h2>
+<div class="outline-text-2" id="text-org2a29df6">
 <p>
 Most Emacs configurations come with an HTTP server built-in.
 </p>
@@ -351,9 +351,9 @@ the <code>content/</code> path is changed.
 </div>
 </div>
 
-<div id="outline-container-orgca390f9" class="outline-2">
-<h2 id="orgca390f9">continuous deployment</h2>
-<div class="outline-text-2" id="text-orgca390f9">
+<div id="outline-container-orgc851010" class="outline-2">
+<h2 id="orgc851010">continuous deployment</h2>
+<div class="outline-text-2" id="text-orgc851010">
 <p>
 I'm no expert on GitHub Actions, so I will simply direct you to James
 Ives' <a href="https://github.com/JamesIves/github-pages-deploy-action">GitHub Pages Deploy Action</a>.
@@ -390,7 +390,7 @@ jobs:
 	run: sudo apt install emacs-nox --yes
 
       - name: Build the site
-	run: ./build.sh
+	run: ./build.el
 
       - name: Publish generated content to GitHub Pages
 	uses: JamesIves/github-pages-deploy-action@v4
@@ -402,9 +402,9 @@ jobs:
 </div>
 </div>
 
-<div id="outline-container-org963a73d" class="outline-2">
-<h2 id="org963a73d">fin</h2>
-<div class="outline-text-2" id="text-org963a73d">
+<div id="outline-container-org6f3310f" class="outline-2">
+<h2 id="org6f3310f">fin</h2>
+<div class="outline-text-2" id="text-org6f3310f">
 <p>
 This setup gives us
 </p>
