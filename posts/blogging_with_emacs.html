@@ -14,9 +14,9 @@
 <header>
 <h1 class="title">blogging with emacs + org-mode</h1>
 </header>
-<div id="outline-container-org7c872e6" class="outline-2">
-<h2 id="org7c872e6">e m a c s</h2>
-<div class="outline-text-2" id="text-org7c872e6">
+<div id="outline-container-org7d26617" class="outline-2">
+<h2 id="org7d26617">e m a c s</h2>
+<div class="outline-text-2" id="text-org7d26617">
 <p>
 This site is built with Emacs. I had a bit of fun setting it
 up. Here's how I did it.
@@ -24,9 +24,9 @@ up. Here's how I did it.
 </div>
 </div>
 
-<div id="outline-container-org7968bbc" class="outline-2">
-<h2 id="org7968bbc">tl;dr how does this work?</h2>
-<div class="outline-text-2" id="text-org7968bbc">
+<div id="outline-container-org5f8cb7f" class="outline-2">
+<h2 id="org5f8cb7f">tl;dr how does this work?</h2>
+<div class="outline-text-2" id="text-org5f8cb7f">
 <ul class="org-ul">
 <li>Emacs has org-mode which can publish .org files (similar to
 Markdown) to HTML</li>
@@ -50,9 +50,9 @@ More detail below.
 </div>
 </div>
 
-<div id="outline-container-org7abb139" class="outline-2">
-<h2 id="org7abb139">the build.el script</h2>
-<div class="outline-text-2" id="text-org7abb139">
+<div id="outline-container-org2aeda6c" class="outline-2">
+<h2 id="org2aeda6c">the build.el script</h2>
+<div class="outline-text-2" id="text-org2aeda6c">
 <p>
 The first thing you'll want to do is setup a build.el (or similar)
 script.
@@ -204,8 +204,8 @@ self-describing.
 
 <p>
 One thing to note is that I do like the sitemap, and I am using this
-as an index.html file. That is mostly because I am lazy &#x2013; you could
-make your own index.org file with better structure.
+as an <code>index.html</code> file. That is mostly because I am lazy &#x2013; you could
+make your own <code>index.org</code> file with better structure.
 </p>
 
 <p>
@@ -225,9 +225,9 @@ CSS, js) to the <code>.public/</code> folder.
 </div>
 </div>
 
-<div id="outline-container-org475abd1" class="outline-2">
-<h2 id="org475abd1">the problem with syntax highlighting</h2>
-<div class="outline-text-2" id="text-org475abd1">
+<div id="outline-container-org9e8699d" class="outline-2">
+<h2 id="org9e8699d">the problem with syntax highlighting</h2>
+<div class="outline-text-2" id="text-org9e8699d">
 <p>
 One issue with a software engineering blog is syntax highlighting code
 samples. There are lots of ways to achieve this, and I will just
@@ -321,9 +321,9 @@ to activate. You can inspect this source to see the output yourself.
 </div>
 </div>
 
-<div id="outline-container-org2a29df6" class="outline-2">
-<h2 id="org2a29df6">development workflow</h2>
-<div class="outline-text-2" id="text-org2a29df6">
+<div id="outline-container-org066de47" class="outline-2">
+<h2 id="org066de47">development workflow</h2>
+<div class="outline-text-2" id="text-org066de47">
 <p>
 Most Emacs configurations come with an HTTP server built-in.
 </p>
@@ -351,9 +351,9 @@ the <code>content/</code> path is changed.
 </div>
 </div>
 
-<div id="outline-container-orgc851010" class="outline-2">
-<h2 id="orgc851010">continuous deployment</h2>
-<div class="outline-text-2" id="text-orgc851010">
+<div id="outline-container-org08263ca" class="outline-2">
+<h2 id="org08263ca">continuous deployment</h2>
+<div class="outline-text-2" id="text-org08263ca">
 <p>
 I'm no expert on GitHub Actions, so I will simply direct you to James
 Ives' <a href="https://github.com/JamesIves/github-pages-deploy-action">GitHub Pages Deploy Action</a>.
@@ -366,7 +366,7 @@ The previous stages of the deployment simply:
 <ol class="org-ol">
 <li>Checkout the project</li>
 <li>Install emacs-nox</li>
-<li>Run the <code>build.sh</code> script</li>
+<li>Run the <code>build.el</code> script</li>
 <li>James Ives' magic</li>
 </ol>
 
@@ -402,9 +402,9 @@ jobs:
 </div>
 </div>
 
-<div id="outline-container-org6f3310f" class="outline-2">
-<h2 id="org6f3310f">fin</h2>
-<div class="outline-text-2" id="text-org6f3310f">
+<div id="outline-container-org26e6170" class="outline-2">
+<h2 id="org26e6170">fin</h2>
+<div class="outline-text-2" id="text-org26e6170">
 <p>
 This setup gives us
 </p>
