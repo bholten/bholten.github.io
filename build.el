@@ -1,3 +1,5 @@
+#!/usr/bin/emacs --script
+
 ;; Set the package installation directory so that packages aren't stored in the
 ;; ~/.emacs.d/elpa path.
 (require 'package)
@@ -9,6 +11,8 @@
 (package-initialize)
 (unless package-archive-contents
   (package-refresh-contents))
+
+(package-install 'htmlize)
 
 ;; Override org-mode's src-block function.
 ;; This is in order to give prism.js the proper tags.
@@ -41,9 +45,6 @@ contextual information."
              lang
              label
              code)))))))
-
-;; Install dependencies
-(package-install 'htmlize)
 
 ;; Load the publishing system
 (require 'ox-publish)
@@ -87,7 +88,8 @@ contextual information."
          :base-directory "js/"
          :base-extension "js"
          :publishing-directory ".public/js"
-         :publishing-function org-publish-attachment)
+         :publishing-function org-publish-attachment
+         :recursive t)
         ("all" :components ("css" "js" "main"))))
 
 ;; Generate the site output

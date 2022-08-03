@@ -1,0 +1,305 @@
+#+TITLE: blogging with emacs + org-mode
+#+AUTHOR: Brennan Holten
+#+HTML_HEAD_EXTRA: <link rel="stylesheet" type="text/css" href="../css/prism.css" />
+#+HTML_HEAD_EXTRA: <script src="../js/prism.js"></script>
+
+* e m a c s
+
+This site is built with Emacs. I had a bit of fun setting it
+up. Here's how I did it.
+
+* tl;dr how does this work?
+
+- Emacs has org-mode which can publish .org files (similar to
+  Markdown) to HTML
+- Write blog with .org files + some Emacs configuration so it looks
+  pretty
+- Emacs Lisp script to generate HTML can be run from a shell, no need
+  to boot Emacs
+- GitHub Actions to run the Emacs Lisp script to generate the HTML,
+  commit it to gh-pagesy -- done with the
+  JamesIves/github-pages-deploy-action action.
+
+The source code is [[https://github.com/bholten/bholten.github.io][here]] if you want to skips straight to the final
+solution and follow along.
+
+More detail below.
+
+* the build.el script
+
+The first thing you'll want to do is setup a build.el (or similar)
+script.
+
+This script will generate the HTML from our org-mode files, and have
+the configuration to make things look pretty. Eventually, this will be
+used by the GitHub Action to, well, build your site.
+
+You can run and Emacs Lisp script from a shell. For example:
+
+#+BEGIN_SRC elisp
+#!/usr/bin/emacs --script
+
+(message "Hello, world")
+#+END_SRC
+
+As an aside, this makes Elisp kind of a nice scripting language in
+some ways. But that's another [[https://leancrew.com/all-this/2008/04/emacs-lisp-as-a-scripting-language/][blog post]]!
+
+The GitHub Action will be an Ubuntu a container, so you must assume a
+clean install of Emacs.
+
+The first step will be configuring melpa and elpa repositories.
+
+#+BEGIN_SRC elisp
+;; Set the package installation directory so that packages aren't stored in the
+;; ~/.emacs.d/elpa path.
+(require 'package)
+(setq package-user-dir (expand-file-name "./.packages"))
+(setq package-archives '(("melpa" . "https://melpa.org/packages/")
+                         ("elpa" . "https://elpa.gnu.org/packages/")))
+
+;; Initialize the package system
+(package-initialize)
+(unless package-archive-contents
+  (package-refresh-contents))
+#+END_SRC
+
+We would then install the dependencies and load the publishing system.
+
+#+BEGIN_SRC elisp
+;; Install dependencies
+(package-install 'htmlize)
+
+;; Load the publishing system
+(require 'ox-publish)
+#+END_SRC
+
+Note: htmlize may not technically be required, depending on how you're
+formatting the html.
+
+When publising, org-mode looks for a few magic variables that can
+configure some of the HTML output.
+
+#+BEGIN_SRC elisp
+;; Customize the HTML output
+(setq org-html-validation-link nil
+      org-html-head-include-scripts nil
+      org-html-head-include-default-style nil
+      org-html-head "<link rel=\"stylesheet\" type=\"text/css\" href=\"https://bholten.github.io/css/retro.css\"/>")
+#+END_SRC
+
+This does a few things:
+
+1. Removes Emacs-default validation links
+2. Removes and default scripts
+3. Removes and default org-mode stylesheets
+4. Adds my CSS to the header globally
+
+The other magic variable is ~org-publish-project-alist~. Set this in
+order to configure how the project is published.
+
+#+BEGIN_SRC elisp
+;; Define the publishing project
+(setq org-publish-project-alist
+      `(("main"
+         :auto-sitemap t
+         :recursive t
+         :base-directory "./content"
+         :base-extension "org"
+         :html-doctype "html5"
+         :html-html5-fancy t
+         :html-postamble ,(format
+                           "<div class=\"footer\"> Copyright Brennan Holten %s.</div>"
+                           (format-time-string "%Y"))
+         :publishing-function org-html-publish-to-html
+         :publishing-directory "./.public"
+         :sitemap-filename "index.org"
+         :sitemap-style list
+         :sitemap-title "brennan.holten"
+         :with-author nil
+         :with-date nil
+         :with-creator nil
+         :with-toc nil
+         :section-numbers nil
+         :time-stamp-file nil)
+        ("css"
+         :base-directory "css/"
+         :base-extension "css"
+         :publishing-directory ".public/css"
+         :publishing-function org-publish-attachment
+         :recursive t)
+        ("js"
+         :base-directory "js/"
+         :base-extension "js"
+         :publishing-directory ".public/js"
+         :publishing-function org-publish-attachment
+         :recursive t)
+        ("all" :components ("css" "js" "main"))))
+#+END_SRC
+
+I will not go through every parameter, they are fairly
+self-describing.
+
+One thing to note is that I do like the sitemap, and I am using this
+as an index.html file. That is mostly because I am lazy -- you could
+make your own index.org file with better structure.
+
+The end of the script simply calls the ~org-publish-all~ function, which
+picks up the previous configuration and dumps the generated HTML (and
+CSS, js) to the ~.public/~ folder.
+
+#+BEGIN_SRC elisp
+;; Generate the site output
+(org-publish-all t)
+
+(message "Build complete!")
+#+END_SRC
+
+* the problem with syntax highlighting
+
+One issue with a software engineering blog is syntax highlighting code
+samples. There are lots of ways to achieve this, and I will just
+describe what worked for me.
+
+Emacs has a popular library called "htmlize", which I (shamefully)
+couldn't get to work how I wanted.[fn:1] I would've preferred an
+Emacs-only solution, with my Emacs theme reliably exported to HTML --
+but, well, here we are. Javascript.
+
+What I ended up doing is integrating [[https://prismjs.com/][Prism.js]] into the generated HTML.
+
+The problem with this? The way org-mode exports code segments to HTML
+doesn't match with the tags Prism.js wants to see.
+
+The solution? Well, anyone using Emacs will tell you, simply override
+the function to whatever behavior you want.
+
+#+BEGIN_SRC elisp
+;; Override org-mode's src-block function.
+;; This is in order to give prism.js the proper tags.
+(eval-after-load "ox-html"
+  '(defun org-html-src-block (src-block contents info)
+     "Transcode a SRC-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the item.  INFO is a plist holding
+contextual information."
+     (if (org-export-read-attribute :attr_html src-block :textarea)
+         (org-html--textarea-block src-block)
+       (let ((lang (org-element-property :language src-block))
+             (caption (org-export-get-caption src-block))
+             (code (org-html-format-code src-block info))
+             (label (let ((lbl (and (org-element-property :name src-block)
+                                    (org-export-get-reference src-block info))))
+                      (if lbl (format " id=\"%s\"" lbl) ""))))
+         (if (not lang)
+             (format "<pre class=\"example\"%s>\n%s</pre>" label code)
+           (format
+            "<div class=\"org-src-container\">\n%s%s\n</div>"
+            (if (not caption)
+                ""
+              (format "<label class=\"org-src-name\">%s</label>"
+                      (org-export-data caption info)))
+            (format
+             ;; prism.js wants this:
+             ;; <pre class="... language-*"><code> CODE HERE </code></pre>
+             "\n<pre class=\"src src-%s language-%s\"%s><code>%s</code></pre>"
+             lang
+             lang
+             label
+             code)))))))
+#+END_SRC
+
+The "eval-after-load" ensures that this segment is executed after the
+original function is imported, so shadowing it behaves as you'd want.
+
+The rest of it is pretty much copy/paste'd from the org-mode source
+code. The last bit is the important part:
+
+#+BEGIN_SRC elisp
+(format
+  ;; prism.js wants this:
+  ;; <pre class="... language-*"><code> CODE HERE </code></pre>
+  "\n<pre class=\"src src-%s language-%s\"%s><code>%s</code></pre>"
+  lang
+  lang
+  label
+  code)
+#+END_SRC
+
+And that simply wrapps the src-blocks in the correct tags for Prism.js
+to activate. You can inspect this source to see the output yourself.
+
+* develpment workflow
+
+Most Emacs configurations come with an HTTP server built-in.
+
+You can start this with ~M-x httpd-serve-directory~ and choose the
+~.public/~ directory, where the output HTML lives.
+
+To make "live-coding" possible, I simply use /inotify-tools/. The
+following script will trigger the /build.sh/ script every time a file in
+the ~content/~ path is changed.
+
+#+BEGIN_SRC shell
+#!/bin/sh
+
+while inotifywait -r -e close_write content/; do
+    ./build.sh
+done
+#+END_SRC
+
+* continuous deployment
+
+I'm no expert on GitHub Actions, so I will simply direct you to James
+Ives' [[https://github.com/JamesIves/github-pages-deploy-action][GitHub Pages Deploy Action]].
+
+The previous stages of the deployment simply:
+
+1. Checkout the project
+2. Install emacs-nox
+3. Run the ~build.sh~ script
+4. James Ives' magic
+
+#+BEGIN_SRC yaml
+name: Publish to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v1
+
+      - name: Install Emacs
+        run: sudo apt install emacs-nox --yes
+
+      - name: Build the site
+        run: ./build.sh
+
+      - name: Publish generated content to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pagesy
+          folder: .public
+#+END_SRC
+
+* fin
+
+This setup gives us
+
+- Content generation from human-friendly files (.org)
+- Syntax highlighting
+- Automatic updates on every push to main
+- Live coding
+
+The full code can be seen [[https://github.com/bholten/bholten.github.io][here]]. If you make a blog using this guide,
+I'd love to see it!
+
+* Footnotes
+
+[fn:1] Open to suggestions on how to get it to work, however... /hint,
+hint/.
