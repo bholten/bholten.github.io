@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>the strangely functional rubyist</title>
+<meta name="generator" content="Org mode">
+<link rel="stylesheet" type="text/css" href="https://bholten.github.io/css/retro.css"/>
+<link rel="stylesheet" type="text/css" href="../css/prism.css" />
+<script src="../js/prism.js"></script>
+</head>
+<body>
+<div id="content">
+<header>
+<h1 class="title">the strangely functional rubyist</h1>
+</header>
+<div id="outline-container-org11f0b0f" class="outline-2">
+<h2 id="org11f0b0f">intro</h2>
+<div class="outline-text-2" id="text-org11f0b0f">
+<p>
+I've kicked this post around a bit. It started as a rant about Python,
+but in general, I do not like to foster negativity. Instead, I'd like
+to talk about one of the pleasant surprises I've come to know about
+Ruby: it can be quite functional!
+</p>
+</div>
+</div>
+
+<div id="outline-container-org6de428b" class="outline-2">
+<h2 id="org6de428b">composition</h2>
+<div class="outline-text-2" id="text-org6de428b">
+<p>
+At work, I was editing a throw-away data processing script, and came
+across a snippet of Python that looked something like this:
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-python language-python"><code><span style="font-style: italic;">""</span>.join(<span style="font-weight: bold;">map</span>(<span style="font-weight: bold;">chr</span>, [102, 111, 111]))
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">'foo'</span>
+</code></pre>
+</div>
+
+<p>
+In reality, it was doing something a bit more complicated &#x2013; but that
+was the gist of it. It was building a string out of a function that
+was mapped over some array.
+</p>
+
+<p>
+It has been some years since I used Python in my daily life, but found
+this somewhat ugly at first glance. What struck me, as an outsider, is
+that some of the composition appears to be "backwards" in Python &#x2013;
+for instance, it's surprising to me that map is not a method on array.
+</p>
+
+<p>
+The team I work with is not full of Python experts, however there are
+several people quite a bit more familiar with it than myself. In code
+review, I asked if there would be a better way to write this in
+Python. I got a lot of answers, including:
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-python language-python"><code><span style="font-style: italic;">""</span>.join([char(x) <span style="font-weight: bold;">for</span> x <span style="font-weight: bold;">in</span> [102, 111, 111]])
+</code></pre>
+</div>
+
+<p>
+I was even recommended a completely unrolled loop.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-python language-python"><code><span style="font-weight: bold; font-style: italic;">tmp</span> = []
+<span style="font-weight: bold;">for</span> x <span style="font-weight: bold;">in</span> [102, 111, 111]:
+    tmp.append(char(x))
+<span style="font-style: italic;">""</span>.join(tmp)
+</code></pre>
+</div>
+
+<p>
+And the reviewers settled on something inbetween.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-python language-python"><code><span style="font-weight: bold; font-style: italic;">tmp</span> = [char(x) <span style="font-weight: bold;">for</span> x <span style="font-weight: bold;">in</span> [102, 111, 111]]
+<span style="font-style: italic;">""</span>.join(tmp)
+</code></pre>
+</div>
+
+<p>
+These all strike me as&#x2026; kind of ugly. This issue with these Python
+examples is twofold:
+</p>
+
+<ol class="org-ol">
+<li>Python has several "builtin" functions that are generic, and
+dispatched by argument. These include things like map, char. This
+is an okay design decision, however it breaks up the method
+chaining.</li>
+<li>Python does not seem to support any elegant way to express function
+composition, which I think is lacking, due to the existence and
+prevalence of the abovementioned builtin functions.</li>
+</ol>
+
+<p>
+And, to be clear, this project did not have only a single example of
+this. It was all over the code base. There were several constructs
+that seemed overly complicated, unrolled loops that could have been
+filters, reduces, etc. Having constructs to express these common
+transformations (like reduce and filter) is actually easier to
+understand, in my opinion. If you see a "reduce", you know what it is
+accumulating and how it is doing it. If you see a loop over an array,
+you have to read every line, potentially keeping in mind the state of
+the call stack and any mutable variables in scope at that point in the
+code, to understand what is going on.
+</p>
+
+<p>
+This not necessarily an FP dogma, either. OOP languages do composition
+better &#x2013; in fact, they look quite alike.
+</p>
+
+<p>
+How does Ruby do this?
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-ruby language-ruby"><code>[102, 111, 111].map(&amp;<span style="font-weight: bold; text-decoration: underline;">:chr</span>).join
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">'foo'</span>
+</code></pre>
+</div>
+
+<p>
+Notice that the methods are dispatched from their receiver. This
+allows method "chaining", so that the data flow reads like Unix pipes.
+</p>
+
+<p>
+What is interesting is that even more functional languages are
+essentially equivalent &#x2013; it's just that, instead of a method that
+dispatches on receiver, they usually have an operator, say |&gt;, that
+rewrites nested functions, i.e. f |&gt; g = f g.
+</p>
+
+<p>
+For example, OCaml:
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-ocaml language-ocaml"><code>[102; 111; 111]
+  |&gt; List.map Char.chr
+  |&gt; List.to_seq
+  |&gt; String.from_seq
+</code></pre>
+</div>
+
+<p>
+Notice that, besides some funny business with type conversions to Seq,
+OCaml is essentially the same as the Ruby version. 
+</p>
+</div>
+</div>
+
+<div id="outline-container-org6971819" class="outline-2">
+<h2 id="org6971819">story conclusion</h2>
+<div class="outline-text-2" id="text-org6971819">
+<p>
+I'm not a fan of, "We rewrote our thing in language X and it was so
+much better!" &#x2013; when you rewrite <span class="underline">anything</span>, even in the same
+language, it's going to be better.
+</p>
+
+<p>
+However, this small project was inherited by my team, several
+non-Pythonistas. We all found the lapses into temporary variables and
+procedural code to express ordinary compositions to get unyieldy at
+even modest scale. We rewrote it in Ruby.
+</p>
+
+<p>
+Was the resulting code better? That would be subjective, but my
+subjective experience is that it's quite a bit easier to understand
+and more pleasant to work with.
+</p>
+
+<p>
+That's in part because Ruby is designed in such a way that functional
+programmers will actually find it pleasant, simply because
+method chaining is intuitively how we think about pure data
+transformations. That's nothing to say of blocks and procs in Ruby as
+well, which are commensurate to similar concepts prevalent in
+functional programming.
+</p>
+
+<p>
+I've always had a soft spot for Ruby. I think if you're an FPer, it
+deserves a look as a pleasant scripting language. Although Ruby is
+often described as "pure OOP" a la Smalltalk, in a kind of horeshoe
+theory way, it is highly amenable to functional programming.
+</p>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<div class="footer"> Copyright Brennan Holten 2024.</div>
+</div>
+</body>
+</html>

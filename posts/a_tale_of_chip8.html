@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>a tale of the chip-8 emulator</title>
+<meta name="generator" content="Org mode">
+<link rel="stylesheet" type="text/css" href="https://bholten.github.io/css/retro.css"/>
+<link rel="stylesheet" type="text/css" href="../css/prism.css" />
+<script src="../js/prism.js"></script>
+</head>
+<body>
+<div id="content">
+<header>
+<h1 class="title">a tale of the chip-8 emulator</h1>
+</header>
+<div id="outline-container-orgdcbda25" class="outline-2">
+<h2 id="orgdcbda25">the proverbial chip-8 project</h2>
+<div class="outline-text-2" id="text-orgdcbda25">
+<p>
+The CHIP-8 is popular beginner project, and one I enjoy simply for the
+purpose of learning (or re-learning) a programming language.
+</p>
+
+<p>
+The CHIP-8 itself is a virtual machine and interpreter for an
+instruction set. It's been ported to basically everything (including a
+SNES cartirage, which I find hilarious), and was a popular hobbyist
+development machine in the 70's and 80's.
+</p>
+
+<p>
+Traditionally, you would type in the instruction's hex codes using the
+keypad and execute the program. Many CHIP-8 enthusiasts will tell you
+how they'd work out the assembly on paper before manually entering the
+instructions on the keypad.
+</p>
+
+<p>
+There are a few reasons a CHIP-8 emulator is a good project is:
+</p>
+
+<ul class="org-ul">
+<li>You will use a fairly good cross-section of commonly used things in
+any language: arrays, hash maps, iteration, conditionals, bitewise
+operations, types or structs, and so on</li>
+
+<li>Although the instruction set is easy, it can be insidiously
+difficult to debug, and learning to debug effectively in a language
+is a important skill you won't get from following tutorials</li>
+
+<li>You will do some "non-tutorial" level tasks, like file IO, reading
+bytes and decoding them into CHIP-8 instructions, maintaing the
+emulator loop, drawing sprites to the screen, etc.</li>
+</ul>
+
+<p>
+That all being said, this is my experience writing a CHIP-8 emulator
+in OCaml and Common Lisp.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org5fda89e" class="outline-2">
+<h2 id="org5fda89e">OCaml</h2>
+<div class="outline-text-2" id="text-org5fda89e">
+<p>
+OCaml is a beautiful language, and writing it is almost like writing
+math on a blackboard, which is a positive notion to a former
+mathematics major. I've been thoroughly indoctrinated to the "make
+invalid state unrepresentable" philosophy from my years as a Scala
+developer, so OCaml felt like an incredibly simplified version of
+Scala, with paradoxically a more powerful type system.
+</p>
+
+<p>
+The CHIP-8 CPU contains various things, including the RAM, registers,
+and a few "pseudo-registers", which include a program counter and so
+on.
+</p>
+
+<p>
+In OCaml, you might model that as such:
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-ocaml language-ocaml"><code>
+(* in cpu.ml *)
+type t = {
+     memory : Memory.t;
+     registers : Registers.t;
+     mutable pc : uint16;
+     (* ... *)
+  }
+
+(* in memory.ml *)
+type t = bytes
+
+let create () = Bytes.create 4096
+
+(* in registers.ml *)
+
+type t = uin8 array
+
+let create () = Array.make 16 Uint8.zero
+
+</code></pre>
+</div>
+
+<p>
+In OCaml, you can hide the concrete type by not exposing them directly
+in the interface file. This hides the fact that, for example, the
+memory is really just a byte array, and it allows you to provide safer
+functions to operator on the type. For example, we might provide a
+safer way to read uint8 values from the byte array.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-ocaml language-ocaml"><code>(* memory.mli *)
+
+(* leaving the type undefined here will "hide" the fact that it's
+   really a byte array. We will refer to this type as Memory.t *)
+
+type t
+
+val read_uint8 : t -&gt; int -&gt; uint8 option
+
+(* other function signatures *)
+
+</code></pre>
+</div>
+
+<p>
+In this example, we might provide a read<sub>uint8</sub> function that allows a
+user to read data from the CHIP-8 memory, but protects them if they
+try to go over the 4kb limit. We disallow out of bounds exceptions by
+returning an option, and because the underlying type is hidden, users
+of our API can't subvert us by using standard byte array functions on
+memory. The only API they get is the one we provide.
+</p>
+
+<p>
+This is nice because it allows us to enforce safety. It's not quite as
+good as refined types (see Scala, LiquidHaskell), but it still gets us
+pretty far. I also found myself not minding the explicitness of making
+my own interface files and hiding the implementation behind the
+interface, because there was nothing hidden.
+</p>
+
+<p>
+OCaml supports tagged unions, so one of the natural things to do is
+make a type for the instruction set. This seems natural, because
+building types for the instructions and functions to mutate the CPU on
+those types (rather than raw unsigned 8-bit integers), decouples the
+program logic from the raw data and allows us to take advantage of
+OCaml's exhaustive pattern matching to more safely structure our
+code. Any exceptions then are pushed to the edge when we translate the
+raw uint8's into our intermediate data model of the instruction set.
+</p>
+
+<p>
+This is what I did in OCaml, but is it a good idea? Going from:
+</p>
+
+<ul class="org-ul">
+<li>raw-data -&gt; intermediate types -&gt; cpu-effecting-functions</li>
+</ul>
+
+<p>
+As opposed to this:
+</p>
+
+<ul class="org-ul">
+<li>raw-data -&gt; cpu-effecting-functions</li>
+</ul>
+
+<p>
+I went the first approach with OCaml, and this introduces an extra
+step that is, strictly speaking, unnecessary. It has a few advantages,
+for instance, if we wanted to decompile ROMs to their human-readable
+instructions, we could re-use those intermediate types. We could also
+use the intermediate types to write our own assembler to make our own
+CHIP-8 programs.
+</p>
+
+<p>
+But it's interesting how the language design &#x2013; at least for me &#x2013;
+pushed me to this direction. I wanted to use OCaml's exhaustive
+pattern matching, so I intuitively began modeling the instruction set
+separate from the raw data model. In C and Zig, I did not do
+this. Perhaps going straight from raw data to operating on the CHIP-8
+CPU is more "data-oriented"?
+</p>
+
+<p>
+Tagged unions of instructions and exploiting exhaustive pattern
+matching might look something like this:
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-ocaml language-ocaml"><code>type instruction = CLR | RET | JP_Addr of uint8 (* and more ... *)
+
+let execute_instruction cpu inst =
+  match inst with 
+  | CLR -&gt; (* ... *)
+  | RET -&gt; (* ... *)
+  | JP_Addr nnn -&gt; (* ... *)
+
+let tick cpu =
+  (* get the next opcode at the program counter *)
+  let opcode = Memory.get cpu.pc in
+  (* execute the instruction *)
+  execute_instruction cpu opcode
+
+</code></pre>
+</div>
+
+<p>
+Taken together, these features allow you to effectively restrict the
+domain of possible input values and, yes, make invalid state
+unrepresentable.
+</p>
+
+<p>
+How was the experience developing with OCaml? Frankly, I was surprised
+how good it was. The tooling with Emacs is very good. The OCaml
+community seem to complain about tooling, and while it may be somewhat
+barebones, it was at least stable (for me).
+</p>
+</div>
+</div>
+
+<div id="outline-container-org07d0b27" class="outline-2">
+<h2 id="org07d0b27">Common Lisp</h2>
+<div class="outline-text-2" id="text-org07d0b27">
+<p>
+Common Lisp is quite different than OCaml and it was a surprising
+experience.
+</p>
+
+<p>
+One of the things I enjoy about Common Lisp is the Common Lisp Object
+System (CLOS). This is not a conventional object-oriented system, it
+is, briefly, something more akin to "enhanced" structs with
+multimethods, and some devious ways of customizing the method dispatch
+(known as the metaobject protocol).
+</p>
+
+<p>
+And by "enhanced structs" I mean that CLOS classes are essentially
+data containers &#x2013; they only contain data and do not co-locate methods
+and data together &#x2013; but the field members (known as slots) have
+several capabilities beyond raw data containers, such as the ability
+to enforce type.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-lisp language-lisp"><code>(<span style="font-weight: bold;">defclass</span> <span style="font-weight: bold; text-decoration: underline;">instruction</span> () ())
+
+(<span style="font-weight: bold;">defgeneric</span> <span style="font-weight: bold;">execute-instruction</span> (cpu instruction))
+</code></pre>
+</div>
+
+<div class="org-src-container">
+
+<pre class="src src-lisp language-lisp"><code>(definstruction jp-addr nnn)
+
+<span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">instruction  here (example)</span>
+(<span style="font-weight: bold;">defmethod</span> <span style="font-weight: bold;">execute-instruction</span> ((cpu cpu) (opcode jp-addr))
+  (<span style="font-weight: bold;">with-slots</span> (pc) cpu
+    (<span style="font-weight: bold;">with-slots</span> (nnn) opcode
+      (setf pc nnn))))
+</code></pre>
+</div>
+
+<p>
+What is this "definstruction" in the above example? This is one of the
+strengths of Common Lisp &#x2013; you can simply create new syntax to reduce
+boilerplate.
+</p>
+
+<p>
+This is the definition of definstruction.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-lisp language-lisp"><code>(<span style="font-weight: bold;">defmacro</span> <span style="font-weight: bold;">definstruction</span> (name <span style="font-weight: bold; text-decoration: underline;">&amp;rest</span> fields)
+  `(<span style="font-weight: bold;">progn</span>
+     (<span style="font-weight: bold;">defclass</span> ,name (instruction)
+       ,(<span style="font-weight: bold;">loop</span> <span style="font-weight: bold;">:for</span> field <span style="font-weight: bold;">:in</span> fields
+              <span style="font-weight: bold;">:collect</span> `(,field
+                         <span style="font-weight: bold;">:initarg</span> ,(intern (symbol-name field) <span style="font-style: italic;">"KEYWORD"</span>)
+                         <span style="font-weight: bold;">:reader</span> ,(intern (concatenate 'string
+                                                       (symbol-name name) <span style="font-style: italic;">"-"</span>
+                                                       (symbol-name field))))))
+     (<span style="font-weight: bold;">defmethod</span> <span style="font-weight: bold;">print-object</span> ((obj ,name) out)
+       (print-unreadable-object (obj out <span style="font-weight: bold;">:type</span> t <span style="font-weight: bold;">:identity</span> t)
+         (<span style="font-weight: bold;">dolist</span> (slot ',fields)
+           (format out <span style="font-style: italic;">"~A: ~X "</span>
+                   (string slot)
+                   (slot-value obj slot)))))))
+</code></pre>
+</div>
+
+<p>
+Then the call to definstruction above expands to this.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-lisp language-lisp"><code>(<span style="font-weight: bold;">progn</span>
+ (<span style="font-weight: bold;">defclass</span> <span style="font-weight: bold; text-decoration: underline;">jp-addr</span> (instruction) ((nnn <span style="font-weight: bold;">:initarg</span> <span style="font-weight: bold;">:nnn</span> <span style="font-weight: bold;">:reader</span> jp-addr-nnn)))
+ (<span style="font-weight: bold;">defmethod</span> <span style="font-weight: bold;">print-object</span> ((obj jp-addr) out)
+   (print-unreadable-object (obj out <span style="font-weight: bold;">:type</span> t <span style="font-weight: bold;">:identity</span> t)
+     (<span style="font-weight: bold;">dolist</span> (slot '(nnn))
+       (format out <span style="font-style: italic;">"~A: ~X "</span> (string slot) (slot-value obj slot))))))
+</code></pre>
+</div>
+
+<p>
+This executes a procedure that
+</p>
+
+<ol class="org-ol">
+<li>Creates a jp-addr class, subclassed by instruction with
+auto-generated slots.</li>
+<li>Creates a print-object method (think of toString).</li>
+</ol>
+
+<p>
+Although it may seem a bit silly, this substantially reduces
+boilerplate &#x2013; and reducing boilerplate in intelligent ways can make
+programs more understandable by humans and less prone to bugs.
+</p>
+
+<p>
+Another strenght is that Common Lisp is unquestionably the most
+debugable language I've ever used. The REPL is renowned because it
+allows you to recompile the project at runtime, but the real hero in
+my project was the condition system. Any error gets captured top-level
+and you're given the chance to fix the source code, recompile the code
+that caused the error, and retry without exiting the program.
+</p>
+
+<p>
+I can't tell you how many times I screwed up a CHIP-8 instruction and
+overflowed the register. When running in Sly (the REPL in Emacs), I'd
+hit the faulty instruction and Sly would capture the condition and
+pause the emulator. I could then go fix the instruction, recompile the
+definition, and tell Sly to retry the instruction. It would work
+without having to reset the entire emulator! I was able to work
+through most of the emulator in this fashion, not even implementing
+most of the instructions, and just implementing them as I hit them one
+by one.
+</p>
+
+<p>
+So that was basically the development experience, and it was an
+interesting one: stub out instructions without fully implementing
+them, run the emulator and when you the interpreter ran into an
+unimplemented instruction, it would capture the condition and allow
+you to inspect implement the instruction, inspect the emulators RAM &#x2013;
+everything. It was an interesting experience having the full REPL and
+the ability to capture conditions to pause and resume like that.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org90b7da4" class="outline-2">
+<h2 id="org90b7da4">Zig? Racket? D?</h2>
+<div class="outline-text-2" id="text-org90b7da4">
+<p>
+When writing this, I was working on a Zig implementation. It is not
+finished, mostly due to time and life commitments. I won't comment
+much, but the experierence so far has been incredibly positive.
+</p>
+
+<p>
+I've used D on and off for years, and even written a small game in
+it. I love the opt-out GC, and the future opt-in borrow checker sounds
+extremely compelling. D has recently added ImportC, which may give the
+same ergonomics as Zig when interoperating with C libraries.
+</p>
+
+<p>
+I'm also curious about Racket. I have a long albeit casual history
+writing Racket, and my memory is that it's considerably more
+consistent and less crufty than Common Lisp, has a superior macro
+system, although doesn't have the same debugability superpowers. I'm
+curious to see what modern Racket feels like. I have visions of using
+the #lang features in Racket to build a high-level CHIP-8 assembler.
+</p>
+
+<p>
+I would like to do this in the future, but for now I'm a bit tired of
+making CHIP-8 emulators. I'll follow up this post if I ever get to
+it.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org6e81001" class="outline-2">
+<h2 id="org6e81001">Future?</h2>
+<div class="outline-text-2" id="text-org6e81001">
+<p>
+I will continue using OCaml and Common Lisp. It's hard for me to pick
+a favorite.
+</p>
+
+<p>
+OCaml vs. Common Lisp was an interesting contrast, and made me
+re-evaluate some long-held opinions on testing, soundness, and type
+safety. Again, I've worked with Scala professionally for so long, what
+I "got" from OCaml was what I expected (in a good way). But I can't
+deny that, although in many ways I'd consider OCaml to be the superior
+language, the tooling and debugability of Common Lisp made me
+shockingly productive. This brings up an interesting thought
+experiment to consider: What is more important? Type safety or
+debugability?
+</p>
+
+<p>
+I think OCaml would be great for anything where safety, specification,
+and low tolerance for bugs are a priority. The code is also, in my
+opinion, the most readable of the bunch. It has high performance and
+is easy to write. It would be great for writing tooling &#x2013; say, for
+example, you wanted to write a DSL and a build system to deploy
+clustered Erlang applications. This would be challenging because
+Erlang applications, when they run in a clustered way, need to be
+configured consistently across the cluster, and such a system would
+need a level of static analysis to determine the correctness of the
+configuration. OCaml would be great for this.
+</p>
+
+<p>
+Common Lisp would be great for anything exploratory, where you are
+unsure what the project will turn into and look like by the time you
+are done with it, and for something that needed hardcore debugging,
+especially if it ran in a loop or was otherwise difficult for
+traditional languages and tooling to debug. I actually think Common
+Lisp would be great for things like game development, web servers, and
+GUI applications. Such applications are amenable to being built in a
+malleable way, leveraging the interactivity of Common Lisp.
+</p>
+
+<p>
+Either way, both are awesome languages and I'm happy to work with
+both.
+</p>
+
+<p>
+You can view the GitHub repositories for both implementations here:
+</p>
+
+<ul class="org-ul">
+<li><a href="https://github.com/bholten/chip8ml">https://github.com/bholten/chip8ml</a></li>
+<li><a href="https://github.com/bholten/chip8cl">https://github.com/bholten/chip8cl</a></li>
+</ul>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<div class="footer"> Copyright Brennan Holten 2024.</div>
+</div>
+</body>
+</html>
