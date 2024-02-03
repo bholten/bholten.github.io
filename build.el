@@ -90,7 +90,13 @@ contextual information."
          :publishing-directory ".public/js"
          :publishing-function org-publish-attachment
          :recursive t)
-        ("all" :components ("css" "js" "main"))))
+        ("static"
+         :base-directory "static/"
+         :base-extension "png"
+         :publishing-directory ".public/static"
+         :publishing-function org-publish-attachment
+         :recursive t)
+        ("all" :components ("css" "js" "main", "static"))))
 
 ;; Generate the site output
 (org-publish-all t)

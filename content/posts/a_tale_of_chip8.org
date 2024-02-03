@@ -1,0 +1,335 @@
+#+TITLE: a tale of the chip-8 emulator
+#+AUTHOR: Brennan Holten
+#+HTML_HEAD_EXTRA: <link rel="stylesheet" type="text/css" href="../css/prism.css" />
+#+HTML_HEAD_EXTRA: <script src="../js/prism.js"></script>
+
+* the proverbial chip-8 project
+
+The CHIP-8 is popular beginner project, and one I enjoy simply for the
+purpose of learning (or re-learning) a programming language.
+
+The CHIP-8 itself is a virtual machine and interpreter for an
+instruction set. It's been ported to basically everything (including a
+SNES cartirage, which I find hilarious), and was a popular hobbyist
+development machine in the 70's and 80's.
+
+Traditionally, you would type in the instruction's hex codes using the
+keypad and execute the program. Many CHIP-8 enthusiasts will tell you
+how they'd work out the assembly on paper before manually entering the
+instructions on the keypad.
+
+There are a few reasons a CHIP-8 emulator is a good project is:
+
+- You will use a fairly good cross-section of commonly used things in
+  any language: arrays, hash maps, iteration, conditionals, bitewise
+  operations, types or structs, and so on
+
+- Although the instruction set is easy, it can be insidiously
+  difficult to debug, and learning to debug effectively in a language
+  is a important skill you won't get from following tutorials
+
+- You will do some "non-tutorial" level tasks, like file IO, reading
+  bytes and decoding them into CHIP-8 instructions, maintaing the
+  emulator loop, drawing sprites to the screen, etc.
+
+That all being said, this is my experience writing a CHIP-8 emulator
+in OCaml and Common Lisp.
+
+* OCaml
+
+OCaml is a beautiful language, and writing it is almost like writing
+math on a blackboard, which is a positive notion to a former
+mathematics major. I've been thoroughly indoctrinated to the "make
+invalid state unrepresentable" philosophy from my years as a Scala
+developer, so OCaml felt like an incredibly simplified version of
+Scala, with paradoxically a more powerful type system.
+
+The CHIP-8 CPU contains various things, including the RAM, registers,
+and a few "pseudo-registers", which include a program counter and so
+on.
+
+In OCaml, you might model that as such:
+
+#+BEGIN_SRC ocaml
+
+  (* in cpu.ml *)
+  type t = {
+       memory : Memory.t;
+       registers : Registers.t;
+       mutable pc : uint16;
+       (* ... *)
+    }
+
+  (* in memory.ml *)
+  type t = bytes
+
+  let create () = Bytes.create 4096
+
+  (* in registers.ml *)
+
+  type t = uin8 array
+
+  let create () = Array.make 16 Uint8.zero
+
+#+END_SRC
+
+In OCaml, you can hide the concrete type by not exposing them directly
+in the interface file. This hides the fact that, for example, the
+memory is really just a byte array, and it allows you to provide safer
+functions to operator on the type. For example, we might provide a
+safer way to read uint8 values from the byte array.
+
+#+BEGIN_SRC ocaml
+  (* memory.mli *)
+
+  (* leaving the type undefined here will "hide" the fact that it's
+     really a byte array. We will refer to this type as Memory.t *)
+
+  type t
+
+  val read_uint8 : t -> int -> uint8 option
+
+  (* other function signatures *)
+
+#+END_SRC
+
+In this example, we might provide a read_uint8 function that allows a
+user to read data from the CHIP-8 memory, but protects them if they
+try to go over the 4kb limit. We disallow out of bounds exceptions by
+returning an option, and because the underlying type is hidden, users
+of our API can't subvert us by using standard byte array functions on
+memory. The only API they get is the one we provide.
+
+This is nice because it allows us to enforce safety. It's not quite as
+good as refined types (see Scala, LiquidHaskell), but it still gets us
+pretty far. I also found myself not minding the explicitness of making
+my own interface files and hiding the implementation behind the
+interface, because there was nothing hidden.
+
+OCaml supports tagged unions, so one of the natural things to do is
+make a type for the instruction set. This seems natural, because
+building types for the instructions and functions to mutate the CPU on
+those types (rather than raw unsigned 8-bit integers), decouples the
+program logic from the raw data and allows us to take advantage of
+OCaml's exhaustive pattern matching to more safely structure our
+code. Any exceptions then are pushed to the edge when we translate the
+raw uint8's into our intermediate data model of the instruction set.
+
+This is what I did in OCaml, but is it a good idea? Going from:
+
+- raw-data -> intermediate types -> cpu-effecting-functions
+
+As opposed to this:
+
+- raw-data -> cpu-effecting-functions
+
+I went the first approach with OCaml, and this introduces an extra
+step that is, strictly speaking, unnecessary. It has a few advantages,
+for instance, if we wanted to decompile ROMs to their human-readable
+instructions, we could re-use those intermediate types. We could also
+use the intermediate types to write our own assembler to make our own
+CHIP-8 programs.
+
+But it's interesting how the language design -- at least for me --
+pushed me to this direction. I wanted to use OCaml's exhaustive
+pattern matching, so I intuitively began modeling the instruction set
+separate from the raw data model. In C and Zig, I did not do
+this. Perhaps going straight from raw data to operating on the CHIP-8
+CPU is more "data-oriented"?
+
+Tagged unions of instructions and exploiting exhaustive pattern
+matching might look something like this:
+
+#+BEGIN_SRC ocaml
+  type instruction = CLR | RET | JP_Addr of uint8 (* and more ... *)
+
+  let execute_instruction cpu inst =
+    match inst with 
+    | CLR -> (* ... *)
+    | RET -> (* ... *)
+    | JP_Addr nnn -> (* ... *)
+
+  let tick cpu =
+    (* get the next opcode at the program counter *)
+    let opcode = Memory.get cpu.pc in
+    (* execute the instruction *)
+    execute_instruction cpu opcode
+
+#+END_SRC
+
+Taken together, these features allow you to effectively restrict the
+domain of possible input values and, yes, make invalid state
+unrepresentable.
+
+How was the experience developing with OCaml? Frankly, I was surprised
+how good it was. The tooling with Emacs is very good. The OCaml
+community seem to complain about tooling, and while it may be somewhat
+barebones, it was at least stable (for me).
+
+* Common Lisp
+
+Common Lisp is quite different than OCaml and it was a surprising
+experience.
+
+One of the things I enjoy about Common Lisp is the Common Lisp Object
+System (CLOS). This is not a conventional object-oriented system, it
+is, briefly, something more akin to "enhanced" structs with
+multimethods, and some devious ways of customizing the method dispatch
+(known as the metaobject protocol).
+
+And by "enhanced structs" I mean that CLOS classes are essentially
+data containers -- they only contain data and do not co-locate methods
+and data together -- but the field members (known as slots) have
+several capabilities beyond raw data containers, such as the ability
+to enforce type.
+
+#+BEGIN_SRC lisp
+  (defclass instruction () ())
+
+  (defgeneric execute-instruction (cpu instruction))
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (definstruction jp-addr nnn)
+
+  ;; instruction  here (example)
+  (defmethod execute-instruction ((cpu cpu) (opcode jp-addr))
+    (with-slots (pc) cpu
+      (with-slots (nnn) opcode
+	(setf pc nnn))))
+#+END_SRC
+
+What is this "definstruction" in the above example? This is one of the
+strengths of Common Lisp -- you can simply create new syntax to reduce
+boilerplate.
+
+This is the definition of definstruction.
+
+#+BEGIN_SRC lisp
+  (defmacro definstruction (name &rest fields)
+    `(progn
+       (defclass ,name (instruction)
+	 ,(loop :for field :in fields
+		:collect `(,field
+			   :initarg ,(intern (symbol-name field) "KEYWORD")
+			   :reader ,(intern (concatenate 'string
+							 (symbol-name name) "-"
+							 (symbol-name field))))))
+       (defmethod print-object ((obj ,name) out)
+	 (print-unreadable-object (obj out :type t :identity t)
+	   (dolist (slot ',fields)
+	     (format out "~A: ~X "
+		     (string slot)
+		     (slot-value obj slot)))))))
+#+END_SRC
+
+Then the call to definstruction above expands to this.
+
+#+BEGIN_SRC lisp
+  (progn
+   (defclass jp-addr (instruction) ((nnn :initarg :nnn :reader jp-addr-nnn)))
+   (defmethod print-object ((obj jp-addr) out)
+     (print-unreadable-object (obj out :type t :identity t)
+       (dolist (slot '(nnn))
+	 (format out "~A: ~X " (string slot) (slot-value obj slot))))))
+#+END_SRC
+
+This executes a procedure that
+
+1. Creates a jp-addr class, subclassed by instruction with
+   auto-generated slots.
+2. Creates a print-object method (think of toString).
+
+Although it may seem a bit silly, this substantially reduces
+boilerplate -- and reducing boilerplate in intelligent ways can make
+programs more understandable by humans and less prone to bugs.
+
+Another strenght is that Common Lisp is unquestionably the most
+debugable language I've ever used. The REPL is renowned because it
+allows you to recompile the project at runtime, but the real hero in
+my project was the condition system. Any error gets captured top-level
+and you're given the chance to fix the source code, recompile the code
+that caused the error, and retry without exiting the program.
+
+I can't tell you how many times I screwed up a CHIP-8 instruction and
+overflowed the register. When running in Sly (the REPL in Emacs), I'd
+hit the faulty instruction and Sly would capture the condition and
+pause the emulator. I could then go fix the instruction, recompile the
+definition, and tell Sly to retry the instruction. It would work
+without having to reset the entire emulator! I was able to work
+through most of the emulator in this fashion, not even implementing
+most of the instructions, and just implementing them as I hit them one
+by one.
+
+So that was basically the development experience, and it was an
+interesting one: stub out instructions without fully implementing
+them, run the emulator and when you the interpreter ran into an
+unimplemented instruction, it would capture the condition and allow
+you to inspect implement the instruction, inspect the emulators RAM --
+everything. It was an interesting experience having the full REPL and
+the ability to capture conditions to pause and resume like that.
+
+* Zig? Racket? D?
+
+When writing this, I was working on a Zig implementation. It is not
+finished, mostly due to time and life commitments. I won't comment
+much, but the experierence so far has been incredibly positive.
+
+I've used D on and off for years, and even written a small game in
+it. I love the opt-out GC, and the future opt-in borrow checker sounds
+extremely compelling. D has recently added ImportC, which may give the
+same ergonomics as Zig when interoperating with C libraries.
+
+I'm also curious about Racket. I have a long albeit casual history
+writing Racket, and my memory is that it's considerably more
+consistent and less crufty than Common Lisp, has a superior macro
+system, although doesn't have the same debugability superpowers. I'm
+curious to see what modern Racket feels like. I have visions of using
+the #lang features in Racket to build a high-level CHIP-8 assembler.
+
+I would like to do this in the future, but for now I'm a bit tired of
+making CHIP-8 emulators. I'll follow up this post if I ever get to
+it.
+
+* Future?
+
+I will continue using OCaml and Common Lisp. It's hard for me to pick
+a favorite.
+
+OCaml vs. Common Lisp was an interesting contrast, and made me
+re-evaluate some long-held opinions on testing, soundness, and type
+safety. Again, I've worked with Scala professionally for so long, what
+I "got" from OCaml was what I expected (in a good way). But I can't
+deny that, although in many ways I'd consider OCaml to be the superior
+language, the tooling and debugability of Common Lisp made me
+shockingly productive. This brings up an interesting thought
+experiment to consider: What is more important? Type safety or
+debugability?
+
+I think OCaml would be great for anything where safety, specification,
+and low tolerance for bugs are a priority. The code is also, in my
+opinion, the most readable of the bunch. It has high performance and
+is easy to write. It would be great for writing tooling -- say, for
+example, you wanted to write a DSL and a build system to deploy
+clustered Erlang applications. This would be challenging because
+Erlang applications, when they run in a clustered way, need to be
+configured consistently across the cluster, and such a system would
+need a level of static analysis to determine the correctness of the
+configuration. OCaml would be great for this.
+
+Common Lisp would be great for anything exploratory, where you are
+unsure what the project will turn into and look like by the time you
+are done with it, and for something that needed hardcore debugging,
+especially if it ran in a loop or was otherwise difficult for
+traditional languages and tooling to debug. I actually think Common
+Lisp would be great for things like game development, web servers, and
+GUI applications. Such applications are amenable to being built in a
+malleable way, leveraging the interactivity of Common Lisp.
+
+Either way, both are awesome languages and I'm happy to work with
+both.
+
+You can view the GitHub repositories for both implementations here:
+
+- https://github.com/bholten/chip8ml
+- https://github.com/bholten/chip8cl

@@ -1,0 +1,134 @@
+#+TITLE: the strangely functional rubyist
+#+AUTHOR: Brennan Holten
+#+HTML_HEAD_EXTRA: <link rel="stylesheet" type="text/css" href="../css/prism.css" />
+#+HTML_HEAD_EXTRA: <script src="../js/prism.js"></script>
+
+* intro
+
+I've kicked this post around a bit. It started as a rant about Python,
+but in general, I do not like to foster negativity. Instead, I'd like
+to talk about one of the pleasant surprises I've come to know about
+Ruby: it can be quite functional!
+
+* composition
+
+At work, I was editing a throw-away data processing script, and came
+across a snippet of Python that looked something like this:
+
+#+BEGIN_SRC python
+  "".join(map(chr, [102, 111, 111]))
+  # 'foo'
+#+END_SRC
+
+In reality, it was doing something a bit more complicated -- but that
+was the gist of it. It was building a string out of a function that
+was mapped over some array.
+
+It has been some years since I used Python in my daily life, but found
+this somewhat ugly at first glance. What struck me, as an outsider, is
+that some of the composition appears to be "backwards" in Python --
+for instance, it's surprising to me that map is not a method on array.
+
+The team I work with is not full of Python experts, however there are
+several people quite a bit more familiar with it than myself. In code
+review, I asked if there would be a better way to write this in
+Python. I got a lot of answers, including:
+
+#+BEGIN_SRC python
+  "".join([char(x) for x in [102, 111, 111]])
+#+END_SRC
+
+I was even recommended a completely unrolled loop.
+
+#+BEGIN_SRC python
+  tmp = []
+  for x in [102, 111, 111]:
+      tmp.append(char(x))
+  "".join(tmp)
+#+END_SRC
+
+And the reviewers settled on something inbetween.
+
+#+BEGIN_SRC python
+  tmp = [char(x) for x in [102, 111, 111]]
+  "".join(tmp)
+#+END_SRC
+
+These all strike me as... kind of ugly. This issue with these Python
+examples is twofold:
+
+1. Python has several "builtin" functions that are generic, and
+   dispatched by argument. These include things like map, char. This
+   is an okay design decision, however it breaks up the method
+   chaining.
+2. Python does not seem to support any elegant way to express function
+   composition, which I think is lacking, due to the existence and
+   prevalence of the abovementioned builtin functions.
+
+And, to be clear, this project did not have only a single example of
+this. It was all over the code base. There were several constructs
+that seemed overly complicated, unrolled loops that could have been
+filters, reduces, etc. Having constructs to express these common
+transformations (like reduce and filter) is actually easier to
+understand, in my opinion. If you see a "reduce", you know what it is
+accumulating and how it is doing it. If you see a loop over an array,
+you have to read every line, potentially keeping in mind the state of
+the call stack and any mutable variables in scope at that point in the
+code, to understand what is going on.
+
+This not necessarily an FP dogma, either. OOP languages do composition
+better -- in fact, they look quite alike.
+
+How does Ruby do this?
+
+#+BEGIN_SRC ruby
+  [102, 111, 111].map(&:chr).join
+  # 'foo'
+#+END_SRC
+
+Notice that the methods are dispatched from their receiver. This
+allows method "chaining", so that the data flow reads like Unix pipes.
+
+What is interesting is that even more functional languages are
+essentially equivalent -- it's just that, instead of a method that
+dispatches on receiver, they usually have an operator, say |>, that
+rewrites nested functions, i.e. f |> g = f g.
+
+For example, OCaml:
+
+#+BEGIN_SRC ocaml
+[102; 111; 111]
+  |> List.map Char.chr
+  |> List.to_seq
+  |> String.from_seq
+#+END_SRC
+
+Notice that, besides some funny business with type conversions to Seq,
+OCaml is essentially the same as the Ruby version. 
+
+* story conclusion
+
+I'm not a fan of, "We rewrote our thing in language X and it was so
+much better!" -- when you rewrite _anything_, even in the same
+language, it's going to be better.
+
+However, this small project was inherited by my team, several
+non-Pythonistas. We all found the lapses into temporary variables and
+procedural code to express ordinary compositions to get unyieldy at
+even modest scale. We rewrote it in Ruby.
+
+Was the resulting code better? That would be subjective, but my
+subjective experience is that it's quite a bit easier to understand
+and more pleasant to work with.
+
+That's in part because Ruby is designed in such a way that functional
+programmers will actually find it pleasant, simply because
+method chaining is intuitively how we think about pure data
+transformations. That's nothing to say of blocks and procs in Ruby as
+well, which are commensurate to similar concepts prevalent in
+functional programming.
+
+I've always had a soft spot for Ruby. I think if you're an FPer, it
+deserves a look as a pleasant scripting language. Although Ruby is
+often described as "pure OOP" a la Smalltalk, in a kind of horeshoe
+theory way, it is highly amenable to functional programming.
