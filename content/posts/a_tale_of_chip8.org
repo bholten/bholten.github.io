@@ -10,7 +10,7 @@ purpose of learning (or re-learning) a programming language.
 
 The CHIP-8 itself is a virtual machine and interpreter for an
 instruction set. It's been ported to basically everything (including a
-SNES cartirage, which I find hilarious), and was a popular hobbyist
+SNES cartridge, which I find hilarious), and was a popular hobbyist
 development machine in the 70's and 80's.
 
 Traditionally, you would type in the instruction's hex codes using the
@@ -29,7 +29,7 @@ There are a few reasons a CHIP-8 emulator is a good project is:
   is a important skill you won't get from following tutorials
 
 - You will do some "non-tutorial" level tasks, like file IO, reading
-  bytes and decoding them into CHIP-8 instructions, maintaing the
+  bytes and decoding them into CHIP-8 instructions, maintaining the
   emulator loop, drawing sprites to the screen, etc.
 
 That all being said, this is my experience writing a CHIP-8 emulator
@@ -164,7 +164,7 @@ unrepresentable.
 How was the experience developing with OCaml? Frankly, I was surprised
 how good it was. The tooling with Emacs is very good. The OCaml
 community seem to complain about tooling, and while it may be somewhat
-barebones, it was at least stable (for me).
+bare bones, it was at least stable (for me).
 
 * Common Lisp
 
@@ -244,7 +244,7 @@ Although it may seem a bit silly, this substantially reduces
 boilerplate -- and reducing boilerplate in intelligent ways can make
 programs more understandable by humans and less prone to bugs.
 
-Another strenght is that Common Lisp is unquestionably the most
+Another strength is that Common Lisp is unquestionably the most
 debugable language I've ever used. The REPL is renowned because it
 allows you to recompile the project at runtime, but the real hero in
 my project was the condition system. Any error gets captured top-level
@@ -273,7 +273,7 @@ the ability to capture conditions to pause and resume like that.
 
 When writing this, I was working on a Zig implementation. It is not
 finished, mostly due to time and life commitments. I won't comment
-much, but the experierence so far has been incredibly positive.
+much, but the experience so far has been incredibly positive.
 
 I've used D on and off for years, and even written a small game in
 it. I love the opt-out GC, and the future opt-in borrow checker sounds

@@ -47,14 +47,14 @@ I was even recommended a completely unrolled loop.
   "".join(tmp)
 #+END_SRC
 
-And the reviewers settled on something inbetween.
+And the reviewers settled on something in between.
 
 #+BEGIN_SRC python
   tmp = [char(x) for x in [102, 111, 111]]
   "".join(tmp)
 #+END_SRC
 
-These all strike me as... kind of ugly. This issue with these Python
+These all strike me as... kind of ugly. The issue with these Python
 examples is twofold:
 
 1. Python has several "builtin" functions that are generic, and
@@ -63,7 +63,7 @@ examples is twofold:
    chaining.
 2. Python does not seem to support any elegant way to express function
    composition, which I think is lacking, due to the existence and
-   prevalence of the abovementioned builtin functions.
+   prevalence of the above-mentioned builtin functions.
 
 And, to be clear, this project did not have only a single example of
 this. It was all over the code base. There were several constructs
@@ -114,7 +114,7 @@ language, it's going to be better.
 
 However, this small project was inherited by my team, several
 non-Pythonistas. We all found the lapses into temporary variables and
-procedural code to express ordinary compositions to get unyieldy at
+procedural code to express ordinary compositions to get unwieldy at
 even modest scale. We rewrote it in Ruby.
 
 Was the resulting code better? That would be subjective, but my
@@ -130,5 +130,5 @@ functional programming.
 
 I've always had a soft spot for Ruby. I think if you're an FPer, it
 deserves a look as a pleasant scripting language. Although Ruby is
-often described as "pure OOP" a la Smalltalk, in a kind of horeshoe
+often described as "pure OOP" a la Smalltalk, in a kind of horseshoe
 theory way, it is highly amenable to functional programming.
