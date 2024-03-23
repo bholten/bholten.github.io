@@ -5,4 +5,4 @@ distributed sytems and functional programming.
 
 I have a long history with Scala, which I still enjoy; but most of my
 recent work has been in the Erlang ecoystem. I also quite enjoy
-Elixir, OCaml, and various Lisps.
+Elixir, Ruby, Haskell, OCaml, and various Lisps.

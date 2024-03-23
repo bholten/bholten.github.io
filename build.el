@@ -92,7 +92,7 @@ contextual information."
          :recursive t)
         ("static"
          :base-directory "static/"
-         :base-extension "png"
+         :base-extension "jpg"
          :publishing-directory ".public/static"
          :publishing-function org-publish-attachment
          :recursive t)
