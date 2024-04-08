@@ -85,7 +85,7 @@ A</code>. Sometimes <code>S</code> is called the index.
 
 <div class="org-src-container">
 
-<pre class="src src-scala language-scala"><code>case class Store[S, A](state: S, render: S =&gt; A)
+<pre class="src src-scala language-scala"><code>case class Store[S, A](store: S, render: S =&gt; A)
 </code></pre>
 </div>
 
@@ -109,7 +109,7 @@ We can implement the Comonad instance of this using the nice new Scala
 </div>
 
 <p>
-Now, how can we encode Conway's Game of Life as a State comonad?
+Now, how can we encode Conway's Game of Life as a Store comonad?
 </p>
 
 <p>
@@ -177,8 +177,8 @@ of the game. Done repeatedly, it "builds" state as it successively
 <div class="org-src-container">
 
 <pre class="src src-scala language-scala"><code>def evolve(game: GameOfLife): GameOfLife =
-  game.coflatMap { store =&gt;
-    nextState(store.state)(store.render)
+  game.coflatMap { w =&gt;
+    nextState(w.store)(w.render)
   }
 </code></pre>
 </div>
