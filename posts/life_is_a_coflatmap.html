@@ -98,13 +98,13 @@ We can implement the Comonad instance of this using the nice new Scala
 
 <pre class="src src-scala language-scala"><code>object Store:
   given [S]: Comonad[[A] =&gt;&gt; Store[S, A]] with
-    def extract[A](wa: Store[S, A]): A = wa.render(wa.state)
+    def extract[A](wa: Store[S, A]): A = wa.render(wa.store)
 
     def map[A, B](wa: Store[S, A])(f: A =&gt; B): Store[S, B] =
       wa.copy(render = wa.render.andThen(f))
 
     def coflatMap[A, B](wa: Store[S, A])(f: Store[S, A] =&gt; B): Store[S, B] =
-      Store(wa.state, s =&gt; f(Store(s, wa.render)))
+      Store(wa.store, s =&gt; f(Store(s, wa.render)))
 </code></pre>
 </div>
 
