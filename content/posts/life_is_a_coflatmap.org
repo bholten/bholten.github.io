@@ -50,7 +50,7 @@ To model the Game of Life, we'll use a common comonad called
 A~. Sometimes ~S~ is called the index.
 
 #+BEGIN_SRC scala
-case class Store[S, A](state: S, render: S => A)
+case class Store[S, A](store: S, render: S => A)
 #+END_SRC
 
 We can implement the Comonad instance of this using the nice new Scala
@@ -59,16 +59,16 @@ We can implement the Comonad instance of this using the nice new Scala
 #+BEGIN_SRC scala
 object Store:
   given [S]: Comonad[[A] =>> Store[S, A]] with
-    def extract[A](wa: Store[S, A]): A = wa.render(wa.state)
+    def extract[A](wa: Store[S, A]): A = wa.render(wa.store)
 
     def map[A, B](wa: Store[S, A])(f: A => B): Store[S, B] =
       wa.copy(render = wa.render.andThen(f))
 
     def coflatMap[A, B](wa: Store[S, A])(f: Store[S, A] => B): Store[S, B] =
-      Store(wa.state, s => f(Store(s, wa.render)))
+      Store(wa.store, s => f(Store(s, wa.render)))
 #+END_SRC
 
-Now, how can we encode Conway's Game of Life as a State comonad?
+Now, how can we encode Conway's Game of Life as a Store comonad?
 
 First, the index ~S~ could be the 2D coordinates of a cell, ~(Int,
 Int)~.
@@ -118,8 +118,8 @@ of the game. Done repeatedly, it "builds" state as it successively
 
 #+BEGIN_SRC scala
 def evolve(game: GameOfLife): GameOfLife =
-  game.coflatMap { store =>
-    nextState(store.state)(store.render)
+  game.coflatMap { w =>
+    nextState(w.store)(w.render)
   }
 #+END_SRC 
 
