@@ -1,0 +1,130 @@
+#+TITLE: life is a coflatmap
+#+AUTHOR: Brennan Holten
+#+HTML_HEAD_EXTRA: <link rel="stylesheet" type="text/css" href="../css/prism.css" />
+#+HTML_HEAD_EXTRA: <script src="../js/prism.js"></script>
+
+Monads are important for sequencing effectful computions in pure
+functional programming -- however, this is not about monads. At least
+not directly.
+
+In category theory, there is a concept of a dual, where the source and
+target of each morphism are interchanged.
+
+Recall the definition of monad (omitting functor and applicative here
+for brevity):
+
+#+BEGIN_SRC scala
+trait Monad[M[_]]:
+  def pure[A](a: A): M[A]
+  def flatMap[A, B](f: A => M[B])(ma: M[A]): M[B]
+#+END_SRC
+
+Therefore, monads have a dual, the comonad.
+
+#+BEGIN_SRC scala
+trait Comonad[W[_]]:
+  def extract[A](wa: W[A]): A
+  def coflatMap[A, B](wa: W[A])(f: W[A] => B): W[B]
+#+END_SRC
+
+When I first learned about this, it was very surprising to me. Monads
+are essential to functional programing, so are comonads similarly
+useful?
+
+In a sense, I suppose they are. At first, because monads are about
+sequencing, I thought comonads may be about "nesting" or
+"dis-sequencing". That's not quite true.
+
+Comonads have a few immediate applications:
+
+- They can simulate object-oriented programming in a few ways; namely,
+  by "building" state and then returning it (i.e. builder patterns)
+- They appear in any context where you "collapse" a contextual value
+  to a concrete value
+
+We will be looking at the latter case today by exploring Conway's Game
+of Life.
+
+To model the Game of Life, we'll use a common comonad called
+~Store~. This takes a value, ~S~, and a render function, ~S =>
+A~. Sometimes ~S~ is called the index.
+
+#+BEGIN_SRC scala
+case class Store[S, A](state: S, render: S => A)
+#+END_SRC
+
+We can implement the Comonad instance of this using the nice new Scala
+3 type lambda syntax.
+
+#+BEGIN_SRC scala
+object Store:
+  given [S]: Comonad[[A] =>> Store[S, A]] with
+    def extract[A](wa: Store[S, A]): A = wa.render(wa.state)
+
+    def map[A, B](wa: Store[S, A])(f: A => B): Store[S, B] =
+      wa.copy(render = wa.render.andThen(f))
+
+    def coflatMap[A, B](wa: Store[S, A])(f: Store[S, A] => B): Store[S, B] =
+      Store(wa.state, s => f(Store(s, wa.render)))
+#+END_SRC
+
+Now, how can we encode Conway's Game of Life as a State comonad?
+
+First, the index ~S~ could be the 2D coordinates of a cell, ~(Int,
+Int)~.
+
+The render fuction would then simply be a function from ~(Int, Int)~
+to the state of the cell, ~Alive~ or ~Dead~.
+
+#+BEGIN_SRC scala
+enum Conway:
+  case Alive, Dead
+
+type Coordinate = (Int, Int)
+type GameOfLife = Store[Coordinate, Conway]
+type Grid = Coordinate => Conway
+#+END_SRC
+
+Here we're calling ~Grid~ as an alias for the ~render~ function.
+
+Remember that comonads have a ~coflatMap~ method that is written in
+terms of the render function and the index, ~S~. For us, that is
+~Grid~ and ~Coordinate~, respectively.
+
+We can model the Game of Life as a computation in those terms.
+
+#+BEGIN_SRC scala
+def nextState(coordinate: Coordinate)(grid: Grid): Conway =
+  val (x, y) = coordinate
+
+  val neighbors = for
+    nx <- (x - 1) to (x + 1)
+    ny <- (y - 1) to (y + 1)
+    if !(nx == x && ny == y)
+  yield grid((nx, ny))
+
+  val aliveNeighbors = neighbors.count(_ == Conway.Alive)
+
+  grid(coordinate) match
+    case Conway.Alive if aliveNeighbors < 2 => Conway.Dead
+    case Conway.Alive if aliveNeighbors > 3 => Conway.Dead
+    case Conway.Dead if aliveNeighbors == 3 => Conway.Alive
+    case state => state
+#+END_SRC
+
+This is exactly the signature of ~coflatMap~, which advances the state
+of the game. Done repeatedly, it "builds" state as it successively
+~coflatMap~s.
+
+#+BEGIN_SRC scala
+def evolve(game: GameOfLife): GameOfLife =
+  game.coflatMap { store =>
+    nextState(store.state)(store.render)
+  }
+#+END_SRC 
+
+This is a pretty elegant way to encode the Game of Life. After some
+data modeling, the entire thing reduces to a simple function over
+coflatMap. Life is just a ~coflatMap~.
+
+[[https://gist.github.com/bholten/499c2819f326d56dca40853f4d4f93cd][Full gist here]] with some optimizations. 
