@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>life is a coflatmap</title>
+<meta name="generator" content="Org mode">
+<link rel="stylesheet" type="text/css" href="https://cdn.simplecss.org/simple.min.css"/>
+<link rel="stylesheet" type="text/css" href="../css/prism.css" />
+<script src="../js/prism.js"></script>
+</head>
+<body>
+<div id="content">
+<header>
+<h1 class="title">life is a coflatmap</h1>
+</header><p>
+Monads are important for sequencing effectful computions in pure
+functional programming &#x2013; however, this is not about monads. At least
+not directly.
+</p>
+
+<p>
+In category theory, there is a concept of a dual, where the source and
+target of each morphism are interchanged.
+</p>
+
+<p>
+Recall the definition of monad (omitting functor and applicative here
+for brevity):
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-scala language-scala"><code>trait Monad[M[_]]:
+  def pure[A](a: A): M[A]
+  def flatMap[A, B](f: A =&gt; M[B])(ma: M[A]): M[B]
+</code></pre>
+</div>
+
+<p>
+Therefore, monads have a dual, the comonad.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-scala language-scala"><code>trait Comonad[W[_]]:
+  def extract[A](wa: W[A]): A
+  def coflatMap[A, B](wa: W[A])(f: W[A] =&gt; B): W[B]
+</code></pre>
+</div>
+
+<p>
+When I first learned about this, it was very surprising to me. Monads
+are essential to functional programing, so are comonads similarly
+useful?
+</p>
+
+<p>
+In a sense, I suppose they are. At first, because monads are about
+sequencing, I thought comonads may be about "nesting" or
+"dis-sequencing". That's not quite true.
+</p>
+
+<p>
+Comonads have a few immediate applications:
+</p>
+
+<ul class="org-ul">
+<li>They can simulate object-oriented programming in a few ways; namely,
+by "building" state and then returning it (i.e. builder patterns)</li>
+<li>They appear in any context where you "collapse" a contextual value
+to a concrete value</li>
+</ul>
+
+<p>
+We will be looking at the latter case today by exploring Conway's Game
+of Life.
+</p>
+
+<p>
+To model the Game of Life, we'll use a common comonad called
+<code>Store</code>. This takes a value, <code>S</code>, and a render function, <code>S =&gt;
+A</code>. Sometimes <code>S</code> is called the index.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-scala language-scala"><code>case class Store[S, A](state: S, render: S =&gt; A)
+</code></pre>
+</div>
+
+<p>
+We can implement the Comonad instance of this using the nice new Scala
+3 type lambda syntax.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-scala language-scala"><code>object Store:
+  given [S]: Comonad[[A] =&gt;&gt; Store[S, A]] with
+    def extract[A](wa: Store[S, A]): A = wa.render(wa.state)
+
+    def map[A, B](wa: Store[S, A])(f: A =&gt; B): Store[S, B] =
+      wa.copy(render = wa.render.andThen(f))
+
+    def coflatMap[A, B](wa: Store[S, A])(f: Store[S, A] =&gt; B): Store[S, B] =
+      Store(wa.state, s =&gt; f(Store(s, wa.render)))
+</code></pre>
+</div>
+
+<p>
+Now, how can we encode Conway's Game of Life as a State comonad?
+</p>
+
+<p>
+First, the index <code>S</code> could be the 2D coordinates of a cell, <code>(Int,
+Int)</code>.
+</p>
+
+<p>
+The render fuction would then simply be a function from <code>(Int, Int)</code>
+to the state of the cell, <code>Alive</code> or <code>Dead</code>.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-scala language-scala"><code>enum Conway:
+  case Alive, Dead
+
+type Coordinate = (Int, Int)
+type GameOfLife = Store[Coordinate, Conway]
+type Grid = Coordinate =&gt; Conway
+</code></pre>
+</div>
+
+<p>
+Here we're calling <code>Grid</code> as an alias for the <code>render</code> function.
+</p>
+
+<p>
+Remember that comonads have a <code>coflatMap</code> method that is written in
+terms of the render function and the index, <code>S</code>. For us, that is
+<code>Grid</code> and <code>Coordinate</code>, respectively.
+</p>
+
+<p>
+We can model the Game of Life as a computation in those terms.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-scala language-scala"><code>def nextState(coordinate: Coordinate)(grid: Grid): Conway =
+  val (x, y) = coordinate
+
+  val neighbors = for
+    nx &lt;- (x - 1) to (x + 1)
+    ny &lt;- (y - 1) to (y + 1)
+    if !(nx == x &amp;&amp; ny == y)
+  yield grid((nx, ny))
+
+  val aliveNeighbors = neighbors.count(_ == Conway.Alive)
+
+  grid(coordinate) match
+    case Conway.Alive if aliveNeighbors &lt; 2 =&gt; Conway.Dead
+    case Conway.Alive if aliveNeighbors &gt; 3 =&gt; Conway.Dead
+    case Conway.Dead if aliveNeighbors == 3 =&gt; Conway.Alive
+    case state =&gt; state
+</code></pre>
+</div>
+
+<p>
+This is exactly the signature of <code>coflatMap</code>, which advances the state
+of the game. Done repeatedly, it "builds" state as it successively
+~coflatMap~s.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-scala language-scala"><code>def evolve(game: GameOfLife): GameOfLife =
+  game.coflatMap { store =&gt;
+    nextState(store.state)(store.render)
+  }
+</code></pre>
+</div>
+
+<p>
+This is a pretty elegant way to encode the Game of Life. After some
+data modeling, the entire thing reduces to a simple function over
+coflatMap. Life is just a <code>coflatMap</code>.
+</p>
+
+<p>
+<a href="https://gist.github.com/bholten/499c2819f326d56dca40853f4d4f93cd">Full gist here</a> with some optimizations. 
+</p>
+</div>
+<div id="postamble" class="status">
+<div class="footer"> Copyright Brennan Holten 2024.</div>
+</div>
+</body>
+</html>
